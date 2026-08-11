@@ -3,23 +3,24 @@
 import React, { useState, useEffect } from 'react';
 import { TabType, KuzenProfile, SharedPhoto, UserSession } from '@/types';
 import { INITIAL_PROFILES, INITIAL_SHARED_PHOTOS } from '@/lib/initialData';
+import { fetchCloudSyncData, pushCloudSyncData } from '@/lib/cloudSync';
 import { Header } from '@/components/Header';
 import { AdminModal } from '@/components/AdminModal';
 import { KuzenProfileCard } from '@/components/KuzenProfileCard';
 import { SharedGallerySection } from '@/components/SharedGallerySection';
 import { MonopolyGame } from '@/components/monopoly/MonopolyGame';
 import { UnoGame } from '@/components/uno/UnoGame';
-import { Sparkles, Heart } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [userSession, setUserSession] = useState<UserSession>({ role: 'guest', name: 'Ziyaretçi' });
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
 
-  // Profiles State (Saved in LocalStorage)
+  // Profiles State
   const [profiles, setProfiles] = useState<Record<'duru' | 'omer' | 'cinar', KuzenProfile>>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('kuzenler_profiles_v2');
+      const saved = localStorage.getItem('kuzenler_profiles_v3');
       if (saved) {
         try {
           return JSON.parse(saved);
@@ -31,10 +32,10 @@ export default function Home() {
     return INITIAL_PROFILES;
   });
 
-  // Shared Photos State (Saved in LocalStorage)
+  // Shared Photos State
   const [sharedPhotos, setSharedPhotos] = useState<SharedPhoto[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('kuzenler_shared_photos');
+      const saved = localStorage.getItem('kuzenler_shared_photos_v3');
       if (saved) {
         try {
           return JSON.parse(saved);
@@ -46,31 +47,58 @@ export default function Home() {
     return INITIAL_SHARED_PHOTOS;
   });
 
+  // Global Cloud Synchronization (Fetches from /api/sync on mount & periodically)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('kuzenler_profiles_v2', JSON.stringify(profiles));
-    }
-  }, [profiles]);
+    const syncWithCloud = async () => {
+      const cloudData = await fetchCloudSyncData();
+      if (cloudData) {
+        if (cloudData.profiles) {
+          setProfiles(cloudData.profiles);
+          localStorage.setItem('kuzenler_profiles_v3', JSON.stringify(cloudData.profiles));
+        }
+        if (cloudData.photos) {
+          setSharedPhotos(cloudData.photos);
+          localStorage.setItem('kuzenler_shared_photos_v3', JSON.stringify(cloudData.photos));
+        }
+      }
+    };
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('kuzenler_shared_photos', JSON.stringify(sharedPhotos));
-    }
-  }, [sharedPhotos]);
+    syncWithCloud();
+    const interval = setInterval(syncWithCloud, 8000); // 8-second live sync polling across all devices
+    return () => clearInterval(interval);
+  }, []);
 
   const handleUpdateProfile = (updated: KuzenProfile) => {
-    setProfiles((prev) => ({
-      ...prev,
+    const newProfiles = {
+      ...profiles,
       [updated.id]: updated,
-    }));
+    };
+    setProfiles(newProfiles);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('kuzenler_profiles_v3', JSON.stringify(newProfiles));
+    }
+    // Push globally to all devices
+    pushCloudSyncData({ profiles: newProfiles });
   };
 
   const handleAddPhoto = (newPhoto: SharedPhoto) => {
-    setSharedPhotos((prev) => [newPhoto, ...prev]);
+    const newPhotos = [newPhoto, ...sharedPhotos];
+    setSharedPhotos(newPhotos);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('kuzenler_shared_photos_v3', JSON.stringify(newPhotos));
+    }
+    // Push globally to all devices
+    pushCloudSyncData({ photos: newPhotos });
   };
 
   const handleDeletePhoto = (id: string) => {
-    setSharedPhotos((prev) => prev.filter((p) => p.id !== id));
+    const newPhotos = sharedPhotos.filter((p) => p.id !== id);
+    setSharedPhotos(newPhotos);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('kuzenler_shared_photos_v3', JSON.stringify(newPhotos));
+    }
+    // Push globally to all devices
+    pushCloudSyncData({ photos: newPhotos });
   };
 
   return (
@@ -94,13 +122,13 @@ export default function Home() {
             <div className="text-center space-y-3 pt-4">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-bold uppercase tracking-wider">
                 <Sparkles className="w-4 h-4" />
-                Duru • Ömer • Çınar Resmi Portalı
+                Duru • Ömer • Çınar Canlı Senkronize Portalı
               </div>
               <h1 className="text-3xl sm:text-6xl font-black tracking-tight text-white">
                 Kuzenler Dünyasına Hoş Geldiniz! ✨
               </h1>
               <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto">
-                3 süper kuzenin özel bilgileri, ortak fotoğraf galerisi ve eğlenceli canlı oyun merkezi!
+                3 süper kuzenin özel bilgileri, ortak canlı fotoğraf galerisi ve 8 kişilik çok oyunculu oyun merkezi!
               </p>
             </div>
 
