@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UnoGameState, UnoCard, UnoColor, Player } from '@/types';
+import { UnoGameState, UnoCard, UnoColor, Player, KuzenProfile } from '@/types';
 import { RoomLobby } from '@/components/RoomLobby';
 import { UnoCardView } from './UnoCardView';
 import { RoomBroadcaster } from '@/lib/multiplayer';
@@ -42,7 +42,11 @@ const GENERATE_DECK = (): UnoCard[] => {
   return deck.sort(() => Math.random() - 0.5);
 };
 
-export const UnoGame: React.FC = () => {
+interface UnoGameProps {
+  profiles?: Record<'duru' | 'omer' | 'cinar', KuzenProfile>;
+}
+
+export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
   const [myPlayerId] = useState<string>(() => `player_${Math.random().toString(36).substr(2, 9)}`);
   const [roomId, setRoomId] = useState<string>('UNO-KUZEN');
 
@@ -320,6 +324,7 @@ export const UnoGame: React.FC = () => {
         players={gameState.players}
         myPlayerId={myPlayerId}
         roomId={roomId}
+        profiles={profiles}
         onJoinRoom={handleJoinRoom}
         onAddBot={handleAddBot}
         onRemovePlayer={(id) => updateState({ ...gameState, players: gameState.players.filter((p) => p.id !== id) })}

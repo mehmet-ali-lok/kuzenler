@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Player } from '@/types';
-import { Users, Bot, Play, Sparkles, Copy, Check, LogOut, ShieldAlert } from 'lucide-react';
+import { Player, KuzenProfile } from '@/types';
+import { Users, Bot, Play, Sparkles, Copy, Check, LogOut } from 'lucide-react';
 import { soundFx } from '@/lib/audio';
 
 interface RoomLobbyProps {
@@ -12,6 +12,7 @@ interface RoomLobbyProps {
   players: Player[];
   myPlayerId: string;
   roomId: string;
+  profiles?: Record<'duru' | 'omer' | 'cinar', KuzenProfile>;
   onJoinRoom: (name: string, avatar: string, customRoomId?: string) => void;
   onAddBot: () => void;
   onRemovePlayer: (id: string) => void;
@@ -21,7 +22,7 @@ interface RoomLobbyProps {
   maxPlayers?: number;
 }
 
-const AVATARS = [
+const DEFAULT_AVATARS = [
   '👧 Duru Avatar', '👦 Ömer Avatar', '👦 Çınar Avatar',
   '🦁 Aslan Kaptan', '🦅 Kartal Göz', '🐬 Yunus Oyuncu',
   '🤖 Robot Oyuncu', '👑 Kral Kardeş', '🚀 Uzay Pilotu'
@@ -39,6 +40,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   players,
   myPlayerId,
   roomId,
+  profiles,
   onJoinRoom,
   onAddBot,
   onRemovePlayer,
@@ -48,11 +50,20 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   maxPlayers = 8,
 }) => {
   const [playerName, setPlayerName] = useState('');
-  const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
+  const [selectedAvatar, setSelectedAvatar] = useState(DEFAULT_AVATARS[0]);
   const [inputRoomId, setInputRoomId] = useState('');
   const [copied, setCopied] = useState(false);
 
   const isInRoom = players.some((p) => p.id === myPlayerId);
+
+  const avatarOptions = profiles
+    ? [
+        `👧 ${profiles.duru.name}`,
+        `👦 ${profiles.omer.name}`,
+        `👦 ${profiles.cinar.name}`,
+        ...DEFAULT_AVATARS.slice(3)
+      ]
+    : DEFAULT_AVATARS;
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,7 +121,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                   onChange={(e) => setSelectedAvatar(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-900 border border-slate-700/80 rounded-2xl text-white text-sm focus:outline-none focus:border-purple-500"
                 >
-                  {AVATARS.map((av) => (
+                  {avatarOptions.map((av) => (
                     <option key={av} value={av}>{av}</option>
                   ))}
                 </select>
@@ -122,7 +133,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                   type="text"
                   value={inputRoomId}
                   onChange={(e) => setInputRoomId(e.target.value.toUpperCase())}
-                  placeholder="Boş bırakırsanız yeni oda kurulur"
+                  placeholder="Boş bırakırsanız yeni oda kurulur (Örn: KUZEN77)"
                   className="w-full px-4 py-3 bg-slate-900 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500 uppercase tracking-widest font-mono"
                 />
               </div>
@@ -139,7 +150,6 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
           /* Active Room Player List & Controls */
           <div className="space-y-6">
             
-            {/* Room Code Share Banner */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950 border border-slate-800">
               <div className="flex items-center gap-3">
                 <span className="p-2 rounded-xl bg-purple-500/20 text-purple-400 font-mono font-extrabold text-lg">
@@ -168,7 +178,6 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               </div>
             </div>
 
-            {/* Joined Players Grid */}
             <div className="space-y-3">
               <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-300">
@@ -227,7 +236,6 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               </div>
             </div>
 
-            {/* Start Game Action Bar */}
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-800">
               <div className="text-xs text-slate-400 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-400" />

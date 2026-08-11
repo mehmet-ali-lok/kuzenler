@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TabType, KuzenProfile, SharedPhoto, UserSession } from '@/types';
 import { INITIAL_PROFILES, INITIAL_SHARED_PHOTOS } from '@/lib/initialData';
 import { fetchCloudSyncData, pushCloudSyncData } from '@/lib/cloudSync';
@@ -17,13 +17,18 @@ export default function Home() {
   const [userSession, setUserSession] = useState<UserSession>({ role: 'guest', name: 'Ziyaretçi' });
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
 
+  const localProfilesTimestampRef = useRef<number>(0);
+  const localPhotosTimestampRef = useRef<number>(0);
+
   // Profiles State
   const [profiles, setProfiles] = useState<Record<'duru' | 'omer' | 'cinar', KuzenProfile>>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('kuzenler_profiles_v3');
+      const saved = localStorage.getItem('kuzenler_profiles_v4');
       if (saved) {
         try {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          localProfilesTimestampRef.current = parseInt(localStorage.getItem('kuzenler_profiles_time') || '0');
+          return parsed;
         } catch (e) {
           console.error('Failed to parse profiles', e);
         }
@@ -35,10 +40,12 @@ export default function Home() {
   // Shared Photos State
   const [sharedPhotos, setSharedPhotos] = useState<SharedPhoto[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('kuzenler_shared_photos_v3');
+      const saved = localStorage.getItem('kuzenler_shared_photos_v4');
       if (saved) {
         try {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          localPhotosTimestampRef.current = parseInt(localStorage.getItem('kuzenler_photos_time') || '0');
+          return parsed;
         } catch (e) {
           console.error('Failed to parse shared photos', e);
         }
@@ -47,24 +54,39 @@ export default function Home() {
     return INITIAL_SHARED_PHOTOS;
   });
 
-  // Global Cloud Synchronization (Fetches from /api/sync on mount & periodically)
+  // Sync with Cloud API
   useEffect(() => {
     const syncWithCloud = async () => {
       const cloudData = await fetchCloudSyncData();
       if (cloudData) {
-        if (cloudData.profiles) {
+        // Sync profiles only if server has data and server timestamp is newer
+        if (
+          cloudData.profiles &&
+          cloudData.profilesUpdatedAt &&
+          cloudData.profilesUpdatedAt > localProfilesTimestampRef.current
+        ) {
+          localProfilesTimestampRef.current = cloudData.profilesUpdatedAt;
           setProfiles(cloudData.profiles);
-          localStorage.setItem('kuzenler_profiles_v3', JSON.stringify(cloudData.profiles));
+          localStorage.setItem('kuzenler_profiles_v4', JSON.stringify(cloudData.profiles));
+          localStorage.setItem('kuzenler_profiles_time', cloudData.profilesUpdatedAt.toString());
         }
-        if (cloudData.photos) {
+
+        // Sync photos only if server has data and server timestamp is newer
+        if (
+          cloudData.photos &&
+          cloudData.photosUpdatedAt &&
+          cloudData.photosUpdatedAt > localPhotosTimestampRef.current
+        ) {
+          localPhotosTimestampRef.current = cloudData.photosUpdatedAt;
           setSharedPhotos(cloudData.photos);
-          localStorage.setItem('kuzenler_shared_photos_v3', JSON.stringify(cloudData.photos));
+          localStorage.setItem('kuzenler_shared_photos_v4', JSON.stringify(cloudData.photos));
+          localStorage.setItem('kuzenler_photos_time', cloudData.photosUpdatedAt.toString());
         }
       }
     };
 
     syncWithCloud();
-    const interval = setInterval(syncWithCloud, 8000); // 8-second live sync polling across all devices
+    const interval = setInterval(syncWithCloud, 6000);
     return () => clearInterval(interval);
   }, []);
 
@@ -73,31 +95,44 @@ export default function Home() {
       ...profiles,
       [updated.id]: updated,
     };
+    const now = Date.now();
+    localProfilesTimestampRef.current = now;
+
     setProfiles(newProfiles);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('kuzenler_profiles_v3', JSON.stringify(newProfiles));
+      localStorage.setItem('kuzenler_profiles_v4', JSON.stringify(newProfiles));
+      localStorage.setItem('kuzenler_profiles_time', now.toString());
     }
-    // Push globally to all devices
+
+    // Push to server cloud sync
     pushCloudSyncData({ profiles: newProfiles });
   };
 
   const handleAddPhoto = (newPhoto: SharedPhoto) => {
     const newPhotos = [newPhoto, ...sharedPhotos];
+    const now = Date.now();
+    localPhotosTimestampRef.current = now;
+
     setSharedPhotos(newPhotos);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('kuzenler_shared_photos_v3', JSON.stringify(newPhotos));
+      localStorage.setItem('kuzenler_shared_photos_v4', JSON.stringify(newPhotos));
+      localStorage.setItem('kuzenler_photos_time', now.toString());
     }
-    // Push globally to all devices
+
     pushCloudSyncData({ photos: newPhotos });
   };
 
   const handleDeletePhoto = (id: string) => {
     const newPhotos = sharedPhotos.filter((p) => p.id !== id);
+    const now = Date.now();
+    localPhotosTimestampRef.current = now;
+
     setSharedPhotos(newPhotos);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('kuzenler_shared_photos_v3', JSON.stringify(newPhotos));
+      localStorage.setItem('kuzenler_shared_photos_v4', JSON.stringify(newPhotos));
+      localStorage.setItem('kuzenler_photos_time', now.toString());
     }
-    // Push globally to all devices
+
     pushCloudSyncData({ photos: newPhotos });
   };
 
@@ -122,7 +157,7 @@ export default function Home() {
             <div className="text-center space-y-3 pt-4">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-bold uppercase tracking-wider">
                 <Sparkles className="w-4 h-4" />
-                Duru • Ömer • Çınar Canlı Senkronize Portalı
+                Duru • Ömer • Çınar Portalı
               </div>
               <h1 className="text-3xl sm:text-6xl font-black tracking-tight text-white">
                 Kuzenler Dünyasına Hoş Geldiniz! ✨
@@ -174,10 +209,10 @@ export default function Home() {
         )}
 
         {/* Monopoly Game View */}
-        {activeTab === 'monopoly' && <MonopolyGame />}
+        {activeTab === 'monopoly' && <MonopolyGame profiles={profiles} />}
 
         {/* UNO Game View */}
-        {activeTab === 'uno' && <UnoGame />}
+        {activeTab === 'uno' && <UnoGame profiles={profiles} />}
       </main>
 
       {/* Login Modal */}

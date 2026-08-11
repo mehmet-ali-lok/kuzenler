@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MonopolyGameState, MonopolyProperty, Player } from '@/types';
+import { MonopolyGameState, MonopolyProperty, Player, KuzenProfile } from '@/types';
 import { MONOPOLY_PROPERTIES } from '@/lib/initialData';
 import { RoomLobby } from '@/components/RoomLobby';
 import { MonopolyBoardView } from './MonopolyBoardView';
@@ -20,7 +20,11 @@ const CHANCE_CARDS = [
   { text: 'Köprü geçiş ücreti ve trafik cezası. -75 ₺ Öde', money: -75 },
 ];
 
-export const MonopolyGame: React.FC = () => {
+interface MonopolyGameProps {
+  profiles?: Record<'duru' | 'omer' | 'cinar', KuzenProfile>;
+}
+
+export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
   const [myPlayerId] = useState<string>(() => `player_${Math.random().toString(36).substr(2, 9)}`);
   const [roomId, setRoomId] = useState<string>('KUZEN77');
   const [selectedProperty, setSelectedProperty] = useState<MonopolyProperty | null>(null);
@@ -63,7 +67,6 @@ export const MonopolyGame: React.FC = () => {
       setRoomId(activeRoom);
     }
 
-    // Check if room already exists on server
     let existingPlayers: Player[] = [];
     let currentProperties = MONOPOLY_PROPERTIES;
     let currentStatus: 'lobby' | 'playing' | 'ended' = 'lobby';
@@ -262,7 +265,6 @@ export const MonopolyGame: React.FC = () => {
     });
   };
 
-  // Bot automation
   useEffect(() => {
     if (gameState.gameStatus === 'playing') {
       const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -287,6 +289,7 @@ export const MonopolyGame: React.FC = () => {
         players={gameState.players}
         myPlayerId={myPlayerId}
         roomId={roomId}
+        profiles={profiles}
         onJoinRoom={handleJoinRoom}
         onAddBot={handleAddBot}
         onRemovePlayer={handleRemovePlayer}
@@ -305,9 +308,7 @@ export const MonopolyGame: React.FC = () => {
     <div className="min-h-[calc(100vh-5rem)] py-6 px-3 sm:px-6 bg-gradient-to-b from-slate-950 via-purple-950/30 to-slate-950">
       <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* Top Turn & Players Bar */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-900/80 border border-slate-800 p-4 rounded-3xl backdrop-blur-md">
-          
           <div className="flex items-center gap-3">
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-extrabold text-lg shadow-md"
@@ -347,10 +348,8 @@ export const MonopolyGame: React.FC = () => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-
         </div>
 
-        {/* Monopoly Board & Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           <div className="lg:col-span-2">
             <MonopolyBoardView

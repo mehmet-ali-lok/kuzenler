@@ -3,6 +3,8 @@ import { KuzenProfile, SharedPhoto } from '@/types';
 export const fetchCloudSyncData = async (): Promise<{
   profiles?: Record<'duru' | 'omer' | 'cinar', KuzenProfile>;
   photos?: SharedPhoto[];
+  profilesUpdatedAt?: number;
+  photosUpdatedAt?: number;
 } | null> => {
   try {
     const res = await fetch('/api/sync', { cache: 'no-store' });
