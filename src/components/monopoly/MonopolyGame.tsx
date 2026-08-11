@@ -27,6 +27,7 @@ interface MonopolyGameProps {
 export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
   const [myPlayerId] = useState<string>(() => `player_${Math.random().toString(36).substr(2, 9)}`);
   const [roomId, setRoomId] = useState<string>('1234');
+  const [isJoined, setIsJoined] = useState<boolean>(false);
   const [selectedProperty, setSelectedProperty] = useState<MonopolyProperty | null>(null);
   const [isLandedTileModal, setIsLandedTileModal] = useState<boolean>(false);
   const [isRolling, setIsRolling] = useState(false);
@@ -103,8 +104,6 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     };
 
     const updatedPlayers = [...existingPlayers.filter((p) => p.id !== myPlayerId), newPlayer];
-    
-    // Check if everyone is ready to auto start
     const realPlayers = updatedPlayers.filter((p) => !p.isBot);
     const autoStart = realPlayers.length >= 2 && realPlayers.every((p) => p.ready);
 
@@ -117,6 +116,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
       log: autoStart ? ['🎮 Tüm oyuncular hazır! Oyun otomatik başladı! 🎲', ...currentLogs] : currentLogs,
     };
 
+    setIsJoined(true);
     updateState(nextState);
   };
 
@@ -190,10 +190,9 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
 
   const handleLeaveRoom = () => {
     broadcasterRef.current?.leaveRoom(myPlayerId);
-    setGameState((prev) => ({ ...prev, gameStatus: 'lobby' }));
+    setIsJoined(false);
   };
 
-  // Official Monopoly Dice Roll & Tile Landing Sequence
   const handleRollDice = () => {
     if (gameState.gameStatus !== 'playing' || gameState.isDiceRolled) return;
 
@@ -210,7 +209,6 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
       let newMoney = currentPlayer.money || 0;
       let logMsg = `${currentPlayer.name} zarları attı: ${d1} ve ${d2} (${totalSteps} adım).`;
 
-      // Passed Start tile (+200₺)
       if (newPosition < (currentPlayer.position || 0)) {
         newMoney += 200;
         logMsg += ' Başlangıç noktasından geçti, +200 ₺ kazandı!';
@@ -222,7 +220,6 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
       let updatedProperties = [...gameState.properties];
       let updatedPlayersList = [...gameState.players];
 
-      // Official Monopoly Rent Rule: If landed on another player's owned property
       if (currentTile.ownerId && currentTile.ownerId !== currentPlayer.id) {
         const ownerIndex = updatedPlayersList.findIndex((p) => p.id === currentTile.ownerId);
         if (ownerIndex !== -1 && !updatedPlayersList[ownerIndex].isBankrupt) {
@@ -238,16 +235,14 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
         }
       }
 
-      // Chance cards tile landing
       if (currentTile.type === 'special' && currentTile.name.includes('ŞANS')) {
         const card = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)];
         newMoney += card.money;
         logMsg += ` Şans kartı çekti: ${card.text}`;
       }
 
-      // Go to jail tile landing
       if (currentTile.type === 'special' && currentTile.name.includes('KODE')) {
-        newPosition = 10; // Jail tile
+        newPosition = 10;
         logMsg += ' Hapishaneye gönderildi!';
       }
 
@@ -267,7 +262,6 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
         log: [logMsg, ...gameState.log],
       });
 
-      // Show tile buy modal ONLY if landed on unowned buyable property
       if (!currentTile.ownerId && currentTile.price > 0) {
         setSelectedProperty(currentTile);
         setIsLandedTileModal(true);
@@ -292,11 +286,9 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     });
   };
 
-  // Strict Official Monopoly Buy Rule Enforcement
   const handleBuyProperty = (property: MonopolyProperty) => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     
-    // Validate that current player is ACTUALLY standing on this tile!
     if (currentPlayer.position !== property.id) {
       alert('Sadece zarınızın durduğu karedeki yeri satın alabilirsiniz!');
       return;
@@ -320,7 +312,6 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     });
   };
 
-  // Bot AI Automation
   useEffect(() => {
     if (gameState.gameStatus === 'playing') {
       const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -329,7 +320,6 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
           const timer = setTimeout(() => handleRollDice(), 1500);
           return () => clearTimeout(timer);
         } else {
-          // Bot automated buy check
           const currentTile = gameState.properties[currentPlayer.position || 0];
           if (!currentTile.ownerId && currentTile.price > 0 && (currentPlayer.money || 0) >= currentTile.price) {
             handleBuyProperty(currentTile);
@@ -341,7 +331,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     }
   }, [gameState.currentPlayerIndex, gameState.isDiceRolled, gameState.gameStatus]);
 
-  if (gameState.gameStatus === 'lobby') {
+  if (!isJoined || gameState.gameStatus === 'lobby') {
     return (
       <RoomLobby
         gameTitle="Monopoly"
@@ -350,6 +340,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
         players={gameState.players}
         myPlayerId={myPlayerId}
         roomId={roomId}
+        isJoined={isJoined}
         profiles={profiles}
         onJoinRoom={handleJoinRoom}
         onToggleReady={handleToggleReady}
@@ -370,7 +361,6 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     <div className="min-h-[calc(100vh-5rem)] py-6 px-3 sm:px-6 bg-gradient-to-b from-slate-950 via-purple-950/30 to-slate-950">
       <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* Disconnection notification */}
         {gameState.notification && (
           <div className="p-4 rounded-2xl bg-amber-950/80 border border-amber-500/50 text-amber-200 font-extrabold text-sm sm:text-base text-center shadow-lg animate-pulse flex items-center justify-center gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-400" />
@@ -427,7 +417,6 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
               players={gameState.players}
               onTileClick={(prop) => {
                 setSelectedProperty(prop);
-                // Tile click is for read-only preview unless player landed on it
                 setIsLandedTileModal(currentPlayer?.position === prop.id && !gameState.isDiceRolled);
               }}
             />

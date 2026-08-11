@@ -49,6 +49,7 @@ interface UnoGameProps {
 export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
   const [myPlayerId] = useState<string>(() => `player_${Math.random().toString(36).substr(2, 9)}`);
   const [roomId, setRoomId] = useState<string>('1234');
+  const [isJoined, setIsJoined] = useState<boolean>(false);
 
   const [gameState, setGameState] = useState<UnoGameState>({
     roomId: '1234',
@@ -119,7 +120,6 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
     };
 
     const updatedPlayers = [...existingPlayers.filter((p) => p.id !== myPlayerId), newPlayer];
-    
     const realPlayers = updatedPlayers.filter((p) => !p.isBot);
     const autoStart = realPlayers.length >= 2 && realPlayers.every((p) => p.ready);
 
@@ -135,6 +135,7 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
       discard = [topCard];
     }
 
+    setIsJoined(true);
     updateState({
       ...gameState,
       roomId: activeRoom,
@@ -351,7 +352,7 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
 
   const handleLeaveRoom = () => {
     broadcasterRef.current?.leaveRoom(myPlayerId);
-    setGameState((prev) => ({ ...prev, gameStatus: 'lobby' }));
+    setIsJoined(false);
   };
 
   useEffect(() => {
@@ -371,7 +372,7 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
     }
   }, [gameState.currentPlayerIndex, gameState.gameStatus]);
 
-  if (gameState.gameStatus === 'lobby') {
+  if (!isJoined || gameState.gameStatus === 'lobby') {
     return (
       <RoomLobby
         gameTitle="Bol Cezalı UNO"
@@ -380,6 +381,7 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
         players={gameState.players}
         myPlayerId={myPlayerId}
         roomId={roomId}
+        isJoined={isJoined}
         profiles={profiles}
         onJoinRoom={handleJoinRoom}
         onToggleReady={handleToggleReady}

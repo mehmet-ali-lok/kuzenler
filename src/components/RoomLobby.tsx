@@ -12,6 +12,7 @@ interface RoomLobbyProps {
   players: Player[];
   myPlayerId: string;
   roomId: string;
+  isJoined: boolean;
   profiles?: Record<'duru' | 'omer' | 'cinar', KuzenProfile>;
   onJoinRoom: (name: string, avatar: string, customRoomId?: string) => void;
   onToggleReady: () => void;
@@ -41,6 +42,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   players,
   myPlayerId,
   roomId,
+  isJoined,
   profiles,
   onJoinRoom,
   onToggleReady,
@@ -53,11 +55,10 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
 }) => {
   const [playerName, setPlayerName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(DEFAULT_AVATARS[0]);
-  const [inputRoomId, setInputRoomId] = useState('');
+  const [inputRoomId, setInputRoomId] = useState('1234');
   const [copied, setCopied] = useState(false);
 
   const myPlayer = players.find((p) => p.id === myPlayerId);
-  const isInRoom = !!myPlayer;
 
   const avatarOptions = profiles
     ? [
@@ -68,7 +69,6 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
       ]
     : DEFAULT_AVATARS;
 
-  // Ready count check
   const realPlayers = players.filter((p) => !p.isBot);
   const readyCount = realPlayers.filter((p) => p.ready).length;
   const isEveryoneReady = realPlayers.length >= 1 && realPlayers.every((p) => p.ready);
@@ -77,7 +77,6 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
     e.preventDefault();
     if (playerName.trim()) {
       soundFx.playClick();
-      // Format to 4-digit code e.g. "1234"
       const formattedCode = inputRoomId.replace(/\D/g, '').slice(0, 4) || '1234';
       onJoinRoom(playerName.trim(), selectedAvatar, formattedCode);
     }
@@ -108,7 +107,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
           </p>
         </div>
 
-        {!isInRoom ? (
+        {!isJoined ? (
           /* Join / Create Form */
           <form onSubmit={handleJoin} className="max-w-md mx-auto space-y-6 bg-slate-950/70 border border-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl">
             <div className="space-y-4">
@@ -146,7 +145,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                   maxLength={4}
                   value={inputRoomId}
                   onChange={(e) => setInputRoomId(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="Varsayılan: 1234"
+                  placeholder="1234"
                   className="w-full px-4 py-3 bg-slate-900 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-base focus:outline-none focus:border-purple-500 tracking-widest font-mono text-center font-bold"
                 />
               </div>
@@ -154,9 +153,9 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
 
             <button
               type="submit"
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-500 text-white font-extrabold text-base shadow-lg shadow-purple-500/25 hover:scale-[1.02] active:scale-95 transition"
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-500 text-white font-extrabold text-base shadow-lg shadow-purple-500/25 hover:scale-[1.02] active:scale-95 transition cursor-pointer"
             >
-              {inputRoomId.trim() ? `${inputRoomId} Odasına Katıl 🚀` : '1234 Odasını Kur/Katıl 🎲'}
+              Odaya Katıl 🚀
             </button>
           </form>
         ) : (
@@ -192,7 +191,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               </div>
             </div>
 
-            {/* Joined Players Grid with Live Ready Indicators */}
+            {/* Joined Players Grid */}
             <div className="space-y-3">
               <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-300">
@@ -242,7 +241,6 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                         </div>
                       </div>
 
-                      {/* Ready Badge */}
                       <div className="shrink-0 flex items-center gap-2">
                         {isReady ? (
                           <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-xl border border-emerald-500/30">
@@ -272,10 +270,9 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               </div>
             </div>
 
-            {/* Action Bar with Ready & Start Button */}
+            {/* Action Bar */}
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-800">
               
-              {/* Ready Toggle for Joined Player */}
               <button
                 onClick={onToggleReady}
                 className={`w-full sm:w-auto px-6 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition ${
@@ -285,10 +282,9 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                 }`}
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>{myPlayer?.ready ? '✓ Hazırım! (Tıkla ve Bekle)' : '👉 Hazırım Butonuna Bas!'}</span>
+                <span>{myPlayer?.ready ? '✓ Hazırım! (Diğerleri bekleniyor)' : '👉 Hazırım Butonuna Bas!'}</span>
               </button>
 
-              {/* Start Game Button */}
               <button
                 onClick={onStartGame}
                 disabled={players.length < 2 || !isEveryoneReady}
