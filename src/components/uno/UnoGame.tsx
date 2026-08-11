@@ -16,27 +16,23 @@ const GENERATE_DECK = (): UnoCard[] => {
   let idCounter = 1;
 
   COLORS.forEach((color) => {
-    // Numbers 0-9
     for (let i = 0; i <= 9; i++) {
       deck.push({ id: `c_${idCounter++}`, color, value: `${i}` as UnoCard['value'] });
       if (i !== 0) {
         deck.push({ id: `c_${idCounter++}`, color, value: `${i}` as UnoCard['value'] });
       }
     }
-    // Action Cards
     ['skip', 'reverse', 'draw2'].forEach((val) => {
       deck.push({ id: `c_${idCounter++}`, color, value: val as UnoCard['value'] });
       deck.push({ id: `c_${idCounter++}`, color, value: val as UnoCard['value'] });
     });
   });
 
-  // Wild Cards
   for (let i = 0; i < 4; i++) {
     deck.push({ id: `c_${idCounter++}`, color: 'wild', value: 'wild' });
     deck.push({ id: `c_${idCounter++}`, color: 'wild', value: 'wild_draw4' });
   }
 
-  // Extreme Penalty Cards (Bol Cezalı)
   ['silence', 'mega_draw_all', 'hand_swap', 'kuzen_curse', 'lock_color'].forEach((penalty) => {
     for (let i = 0; i < 2; i++) {
       deck.push({ id: `c_${idCounter++}`, color: 'wild', value: penalty as UnoCard['value'] });
@@ -60,7 +56,7 @@ export const UnoGame: React.FC = () => {
     currentPlayerIndex: 0,
     direction: 1,
     gameStatus: 'lobby',
-    log: ['Bol Cezalı UNO lobisine hoş geldiniz!'],
+    log: ['Bol Cezalı UNO canlı odasına hoş geldiniz!'],
     unoDeclared: {},
   });
 
@@ -83,10 +79,28 @@ export const UnoGame: React.FC = () => {
     broadcasterRef.current?.broadcast(newState);
   };
 
-  const handleJoinRoom = (name: string, avatar: string, customRoomId?: string) => {
-    const activeRoom = customRoomId || roomId;
+  const handleJoinRoom = async (name: string, avatar: string, customRoomId?: string) => {
+    const activeRoom = (customRoomId || roomId).toUpperCase();
     if (customRoomId && customRoomId !== roomId) {
-      setRoomId(customRoomId);
+      setRoomId(activeRoom);
+    }
+
+    let existingPlayers: Player[] = [];
+    let currentStatus: 'lobby' | 'playing' | 'ended' = 'lobby';
+    let currentLogs = [`${name} UNO odasına katıldı!`];
+
+    try {
+      const res = await fetch(`/api/rooms?game=uno&roomId=${activeRoom}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found && data.gameState) {
+          existingPlayers = data.gameState.players || [];
+          currentStatus = data.gameState.gameStatus || 'lobby';
+          currentLogs = [`${name} UNO odasına katıldı!`, ...(data.gameState.log || [])];
+        }
+      }
+    } catch (e) {
+      console.error('Fetch UNO room error', e);
     }
 
     const playerColors = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#d946ef'];
@@ -94,16 +108,18 @@ export const UnoGame: React.FC = () => {
       id: myPlayerId,
       name,
       avatar,
-      color: playerColors[gameState.players.length % playerColors.length],
+      color: playerColors[existingPlayers.length % playerColors.length],
       cards: [],
     };
 
-    const updatedPlayers = [...gameState.players.filter((p) => p.id !== myPlayerId), newPlayer];
+    const updatedPlayers = [...existingPlayers.filter((p) => p.id !== myPlayerId), newPlayer];
+    
     updateState({
       ...gameState,
       roomId: activeRoom,
       players: updatedPlayers,
-      log: [`${name} UNO odasına katıldı!`, ...gameState.log],
+      gameStatus: currentStatus,
+      log: currentLogs,
     });
   };
 
@@ -133,7 +149,6 @@ export const UnoGame: React.FC = () => {
     soundFx.playWinFanfare();
     const fullDeck = GENERATE_DECK();
 
-    // Deal 7 cards to each player
     const updatedPlayers = gameState.players.map((p) => ({
       ...p,
       cards: fullDeck.splice(0, 7),
@@ -173,10 +188,8 @@ export const UnoGame: React.FC = () => {
     let updatedPlayers = [...gameState.players];
     let deck = [...gameState.drawDeck];
 
-    // Remove played card from hand
     updatedPlayers[gameState.currentPlayerIndex].cards = (currentPlayer.cards || []).filter((c) => c.id !== card.id);
 
-    // Extreme Penalty Cards Logic
     if (card.value === 'silence') {
       soundFx.playPenaltyBuzzer();
       penaltyMessage = '⚡ SESSİZLİK CEZASI! Kimse konuşamaz, konuşan +2 kart çeker!';
@@ -213,7 +226,6 @@ export const UnoGame: React.FC = () => {
       nextIndex = (nextIndex + nextDirection + gameState.players.length) % gameState.players.length;
     }
 
-    // Check Win
     if (updatedPlayers[gameState.currentPlayerIndex].cards?.length === 0) {
       soundFx.playWinFanfare();
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
@@ -227,7 +239,6 @@ export const UnoGame: React.FC = () => {
       return;
     }
 
-    // Color pick for wild
     const chosenColor: UnoColor = card.color === 'wild' ? COLORS[Math.floor(Math.random() * COLORS.length)] : card.color;
 
     updateState({
@@ -283,7 +294,6 @@ export const UnoGame: React.FC = () => {
     });
   };
 
-  // Automated bot moves
   useEffect(() => {
     if (gameState.gameStatus === 'playing') {
       const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -330,7 +340,6 @@ export const UnoGame: React.FC = () => {
     <div className="min-h-[calc(100vh-5rem)] py-6 px-3 sm:px-6 bg-gradient-to-b from-slate-950 via-rose-950/20 to-slate-950">
       <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* Active Penalty Banner Notification */}
         {gameState.activePenalty && (
           <div className="p-4 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-200 font-extrabold text-sm sm:text-base text-center shadow-lg shadow-rose-950/50 animate-bounce flex items-center justify-center gap-3">
             <Flame className="w-6 h-6 text-rose-400" />
@@ -338,10 +347,7 @@ export const UnoGame: React.FC = () => {
           </div>
         )}
 
-        {/* Top Game Status & Deck Info */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-900/80 border border-slate-800 p-5 rounded-3xl backdrop-blur-md items-center">
-          
-          {/* Current Turn */}
           <div className="flex items-center gap-3">
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-md"
@@ -358,7 +364,6 @@ export const UnoGame: React.FC = () => {
             </div>
           </div>
 
-          {/* Current Color & Top Card */}
           <div className="flex items-center justify-center gap-4">
             <div className="text-center">
               <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">Aktif Renk</div>
@@ -370,7 +375,6 @@ export const UnoGame: React.FC = () => {
             {topDiscard && <UnoCardView card={topDiscard} size="sm" disabled />}
           </div>
 
-          {/* UNO Button */}
           <div className="flex items-center justify-end">
             <button
               onClick={handleDeclareUno}
@@ -379,14 +383,10 @@ export const UnoGame: React.FC = () => {
               🔥 "UNO!" De!
             </button>
           </div>
-
         </div>
 
-        {/* Play Table Area */}
         <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 sm:p-10 text-center backdrop-blur-md space-y-6">
           <div className="flex flex-wrap items-center justify-center gap-8">
-            
-            {/* Draw Deck */}
             <div className="space-y-2">
               <div className="text-xs font-bold text-slate-400">Deste ({gameState.drawDeck.length} Kart)</div>
               <button
@@ -401,16 +401,13 @@ export const UnoGame: React.FC = () => {
               </button>
             </div>
 
-            {/* Discard Pile */}
             <div className="space-y-2">
               <div className="text-xs font-bold text-slate-400">Atılan Kart</div>
               {topDiscard && <UnoCardView card={topDiscard} size="md" disabled />}
             </div>
-
           </div>
         </div>
 
-        {/* My Player Hand */}
         {myPlayer && (
           <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 backdrop-blur-md space-y-4">
             <div className="flex items-center justify-between">

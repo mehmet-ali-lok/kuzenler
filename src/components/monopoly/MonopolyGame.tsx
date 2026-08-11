@@ -16,7 +16,7 @@ const CHANCE_CARDS = [
   { text: 'Duru sana doğum günü hediyesi gönderdi! +100 ₺ Al', money: 100 },
   { text: 'Ömer ile Uno oynarken ceza aldın! -50 ₺ Öde', money: -50 },
   { text: 'Çınar sana oyunda hızlandırma iksiri sundu! +150 ₺ Al', money: 150 },
-  { text: 'Kapadokya turizim ödülü kazandın! +200 ₺ Al', money: 200 },
+  { text: 'Kapadokya turizm ödülü kazandın! +200 ₺ Al', money: 200 },
   { text: 'Köprü geçiş ücreti ve trafik cezası. -75 ₺ Öde', money: -75 },
 ];
 
@@ -34,7 +34,7 @@ export const MonopolyGame: React.FC = () => {
     dice: [1, 1],
     isDiceRolled: false,
     gameStatus: 'lobby',
-    log: ['Monopoly lobisine hoş geldiniz!'],
+    log: ['Monopoly canlı odasına hoş geldiniz!'],
     freeParkingPool: 0,
   });
 
@@ -57,10 +57,31 @@ export const MonopolyGame: React.FC = () => {
     broadcasterRef.current?.broadcast(newState);
   };
 
-  const handleJoinRoom = (name: string, avatar: string, customRoomId?: string) => {
-    const activeRoom = customRoomId || roomId;
+  const handleJoinRoom = async (name: string, avatar: string, customRoomId?: string) => {
+    const activeRoom = (customRoomId || roomId).toUpperCase();
     if (customRoomId && customRoomId !== roomId) {
-      setRoomId(customRoomId);
+      setRoomId(activeRoom);
+    }
+
+    // Check if room already exists on server
+    let existingPlayers: Player[] = [];
+    let currentProperties = MONOPOLY_PROPERTIES;
+    let currentStatus: 'lobby' | 'playing' | 'ended' = 'lobby';
+    let currentLogs = [`${name} odaya katıldı!`];
+
+    try {
+      const res = await fetch(`/api/rooms?game=monopoly&roomId=${activeRoom}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found && data.gameState) {
+          existingPlayers = data.gameState.players || [];
+          currentProperties = data.gameState.properties || MONOPOLY_PROPERTIES;
+          currentStatus = data.gameState.gameStatus || 'lobby';
+          currentLogs = [`${name} odaya katıldı!`, ...(data.gameState.log || [])];
+        }
+      }
+    } catch (e) {
+      console.error('Fetch existing room error', e);
     }
 
     const colors = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#d946ef'];
@@ -68,20 +89,25 @@ export const MonopolyGame: React.FC = () => {
       id: myPlayerId,
       name,
       avatar,
-      color: colors[gameState.players.length % colors.length],
+      color: colors[existingPlayers.length % colors.length],
       money: 1500,
       position: 0,
       inJail: false,
       isBankrupt: false,
     };
 
-    const updatedPlayers = [...gameState.players.filter((p) => p.id !== myPlayerId), newPlayer];
-    updateState({
+    const updatedPlayers = [...existingPlayers.filter((p) => p.id !== myPlayerId), newPlayer];
+    
+    const nextState: MonopolyGameState = {
       ...gameState,
       roomId: activeRoom,
       players: updatedPlayers,
-      log: [`${name} odaya katıldı!`, ...gameState.log],
-    });
+      properties: currentProperties,
+      gameStatus: currentStatus,
+      log: currentLogs,
+    };
+
+    updateState(nextState);
   };
 
   const handleAddBot = () => {
@@ -134,7 +160,6 @@ export const MonopolyGame: React.FC = () => {
     });
   };
 
-  // Dice Roll Logic
   const handleRollDice = () => {
     if (gameState.gameStatus !== 'playing' || gameState.isDiceRolled) return;
 
@@ -151,7 +176,6 @@ export const MonopolyGame: React.FC = () => {
       let newMoney = currentPlayer.money || 0;
       let logMsg = `${currentPlayer.name} zarları attı: ${d1} ve ${d2} (${totalSteps} adım).`;
 
-      // Passed Start tile (+200)
       if (newPosition < (currentPlayer.position || 0)) {
         newMoney += 200;
         logMsg += ' Başlangıç noktasından geçti, +200 ₺ kazandı!';
@@ -160,7 +184,6 @@ export const MonopolyGame: React.FC = () => {
       const currentTile = gameState.properties[newPosition];
       logMsg += ` ${currentTile.name} karesine geldi.`;
 
-      // Rent payment check
       if (currentTile.ownerId && currentTile.ownerId !== currentPlayer.id) {
         const owner = gameState.players.find((p) => p.id === currentTile.ownerId);
         if (owner && !owner.isBankrupt) {
@@ -169,14 +192,12 @@ export const MonopolyGame: React.FC = () => {
           soundFx.playPenaltyBuzzer();
           logMsg += ` ${owner.name} kullanıcısına ${rentAmount} ₺ kira ödedi!`;
 
-          // Give rent to owner
           gameState.players = gameState.players.map((p) =>
             p.id === owner.id ? { ...p, money: (p.money || 0) + rentAmount } : p
           );
         }
       }
 
-      // Chance cards tile landing
       if (currentTile.type === 'special' && currentTile.name.includes('ŞANS')) {
         const card = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)];
         newMoney += card.money;
@@ -198,7 +219,6 @@ export const MonopolyGame: React.FC = () => {
         log: [logMsg, ...gameState.log],
       });
 
-      // Show tile popup if available to buy
       if (!currentTile.ownerId && currentTile.price > 0) {
         setSelectedProperty(currentTile);
       }
@@ -207,7 +227,6 @@ export const MonopolyGame: React.FC = () => {
 
   const handleNextTurn = () => {
     let nextIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-    // Skip bankrupt players
     while (gameState.players[nextIndex]?.isBankrupt && gameState.players.filter((p) => !p.isBankrupt).length > 1) {
       nextIndex = (nextIndex + 1) % gameState.players.length;
     }
@@ -243,7 +262,7 @@ export const MonopolyGame: React.FC = () => {
     });
   };
 
-  // Automated bot turns
+  // Bot automation
   useEffect(() => {
     if (gameState.gameStatus === 'playing') {
       const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -289,7 +308,6 @@ export const MonopolyGame: React.FC = () => {
         {/* Top Turn & Players Bar */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-900/80 border border-slate-800 p-4 rounded-3xl backdrop-blur-md">
           
-          {/* Turn Indicator */}
           <div className="flex items-center gap-3">
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-extrabold text-lg shadow-md"
@@ -306,7 +324,6 @@ export const MonopolyGame: React.FC = () => {
             </div>
           </div>
 
-          {/* Dice Roll Action */}
           <div className="flex items-center justify-center">
             <DiceAnimation
               dice={gameState.dice}
@@ -316,7 +333,6 @@ export const MonopolyGame: React.FC = () => {
             />
           </div>
 
-          {/* End Turn Action Button */}
           <div className="flex items-center justify-end">
             <button
               onClick={handleNextTurn}
@@ -334,10 +350,8 @@ export const MonopolyGame: React.FC = () => {
 
         </div>
 
-        {/* Main Game Layout: Monopoly Board + Sidebar */}
+        {/* Monopoly Board & Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          
-          {/* Board View (2 Columns wide on Desktop) */}
           <div className="lg:col-span-2">
             <MonopolyBoardView
               properties={gameState.properties}
@@ -346,10 +360,7 @@ export const MonopolyGame: React.FC = () => {
             />
           </div>
 
-          {/* Sidebar: Players Status & Game Log */}
           <div className="space-y-6">
-            
-            {/* Players Money & Status Cards */}
             <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 backdrop-blur-md space-y-3">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-300">
                 <Wallet className="w-4 h-4 text-emerald-400" />
@@ -377,7 +388,6 @@ export const MonopolyGame: React.FC = () => {
               </div>
             </div>
 
-            {/* Game Event Logs */}
             <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 backdrop-blur-md space-y-3">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-300">
                 <History className="w-4 h-4 text-purple-400" />
@@ -391,12 +401,9 @@ export const MonopolyGame: React.FC = () => {
                 ))}
               </div>
             </div>
-
           </div>
-
         </div>
 
-        {/* Selected Tile Modal */}
         <PropertyCardModal
           property={selectedProperty}
           players={gameState.players}
