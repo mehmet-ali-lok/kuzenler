@@ -1,11 +1,18 @@
-export type TabType = 'duru' | 'omer' | 'cinar' | 'monopoly' | 'uno';
+export type TabType = 'home' | 'monopoly' | 'uno';
+
+export type UserRole = 'guest' | 'duru' | 'omer' | 'cinar' | 'admin';
+
+export interface UserSession {
+  role: UserRole;
+  name: string;
+}
 
 export interface KuzenProfile {
   id: 'duru' | 'omer' | 'cinar';
   name: string;
   title: string;
   age: number;
-  avatar: string;
+  avatar: string; // Base64 or Image URL
   themeColor: string;
   bgGradient: string;
   bio: string;
@@ -13,7 +20,14 @@ export interface KuzenProfile {
   favoriteGames: string[];
   quote: string;
   badges: Array<{ icon: string; label: string }>;
-  gallery: string[];
+}
+
+export interface SharedPhoto {
+  id: string;
+  url: string; // Base64 or Image URL
+  title: string;
+  uploadedBy: string;
+  date: string;
 }
 
 export interface Player {
@@ -69,12 +83,11 @@ export type UnoValue =
   | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
   | 'skip' | 'reverse' | 'draw2'
   | 'wild' | 'wild_draw4'
-  // Custom Harsh Penalty Cards (Bol Cezalı)
-  | 'silence'        // Sessizlik cezası: Kimse konuşamaz!
-  | 'mega_draw_all'  // Herkese +2 kart
-  | 'hand_swap'      // El değiştir (Sağdaki ile)
-  | 'kuzen_curse'    // İstediğin kişiye 3 kart çektir!
-  | 'lock_color';    // Rengi tutturana kadar kart çek!
+  | 'silence'
+  | 'mega_draw_all'
+  | 'hand_swap'
+  | 'kuzen_curse'
+  | 'lock_color';
 
 export interface UnoCard {
   id: string;
@@ -91,7 +104,7 @@ export interface UnoGameState {
   currentColor: UnoColor;
   currentValue: UnoValue;
   currentPlayerIndex: number;
-  direction: 1 | -1; // 1 clockwise, -1 counter-clockwise
+  direction: 1 | -1;
   gameStatus: 'lobby' | 'playing' | 'ended';
   activePenalty?: string | null;
   log: string[];

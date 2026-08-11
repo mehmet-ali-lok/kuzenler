@@ -1,4 +1,4 @@
-import { KuzenProfile, MonopolyProperty } from '@/types';
+import { KuzenProfile, SharedPhoto, MonopolyProperty } from '@/types';
 
 export const INITIAL_PROFILES: Record<'duru' | 'omer' | 'cinar', KuzenProfile> = {
   duru: {
@@ -9,7 +9,7 @@ export const INITIAL_PROFILES: Record<'duru' | 'omer' | 'cinar', KuzenProfile> =
     avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=400',
     themeColor: 'from-pink-500 to-rose-600',
     bgGradient: 'from-pink-950/40 via-purple-950/30 to-slate-950',
-    bio: 'Resim yapmayı, kitap okumayı ve strateji oyunlarında rakiplerimi tatlı tatlı yenmeyi çok seviyorum! Monopoly\'de Türkiye\'nin en kıymetli yerlerini toplamak benim işim.',
+    bio: 'Resim yapmayı, kitap okumayı ve strateji oyunlarında rakiplerimi yenmeyi çok seviyorum! Monopoly\'de Türkiye\'nin en kıymetli yerlerini toplamak benim işim.',
     hobbies: ['🎨 Dijital & Kara Kalem Çizim', '📚 Fantastik Kitaplar', '🧩 1000 Parçalık Puzzle', '🎹 Piyano Vuruşları'],
     favoriteGames: ['🎲 Monopoly (Elak Lideri)', '🃏 Bol Cezalı UNO', '🎮 Roblox', '♟️ Satranç'],
     quote: '"Zekanı ve stratejini kullanırsan, en zor Monopoly tahtasını bile fethedersin!"',
@@ -17,10 +17,6 @@ export const INITIAL_PROFILES: Record<'duru' | 'omer' | 'cinar', KuzenProfile> =
       { icon: '👑', label: 'Monopoly Ustası' },
       { icon: '🎨', label: 'Süper Ressam' },
       { icon: '⭐', label: 'En Akılcı Hamle' }
-    ],
-    gallery: [
-      'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?auto=format&fit=crop&q=80&w=600'
     ]
   },
   omer: {
@@ -39,10 +35,6 @@ export const INITIAL_PROFILES: Record<'duru' | 'omer' | 'cinar', KuzenProfile> =
       { icon: '🃏', label: 'UNO Cezalandırıcı' },
       { icon: '⚡', label: 'Işık Hızında Hamle' },
       { icon: '🏆', label: 'Oyun Birincisi' }
-    ],
-    gallery: [
-      'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=600'
     ]
   },
   cinar: {
@@ -61,16 +53,35 @@ export const INITIAL_PROFILES: Record<'duru' | 'omer' | 'cinar', KuzenProfile> =
       { icon: '🚀', label: 'Enerji Bombası' },
       { icon: '🎲', label: 'Şanslı Zarcı' },
       { icon: '🌟', label: 'Kuzen Yıldızı' }
-    ],
-    gallery: [
-      'https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=600'
     ]
   }
 };
 
+export const INITIAL_SHARED_PHOTOS: SharedPhoto[] = [
+  {
+    id: 'photo_1',
+    url: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&q=80&w=800',
+    title: 'Kuzenler Birlikte Tatilde! 🏖️',
+    uploadedBy: 'Duru',
+    date: '2026-07-15'
+  },
+  {
+    id: 'photo_2',
+    url: 'https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&q=80&w=800',
+    title: 'Monopoly Zafer Kutlaması 🏆',
+    uploadedBy: 'Ömer',
+    date: '2026-08-01'
+  },
+  {
+    id: 'photo_3',
+    url: 'https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&q=80&w=800',
+    title: 'Eğlenceli Oyun Gecesi 🎲',
+    uploadedBy: 'Çınar',
+    date: '2026-08-10'
+  }
+];
+
 export const MONOPOLY_PROPERTIES: MonopolyProperty[] = [
-  // Bottom Row (0 - 9)
   { id: 0, name: 'BAŞLANGIÇ', subtitle: '+200₺ Al', type: 'special', price: 0, rent: 0 },
   { id: 1, name: 'Kapadokya', subtitle: 'Nevşehir', type: 'turkey', price: 100, rent: 15, colorGroup: '#ec4899', flag: '🇹🇷', housePrice: 50, houseRent: [15, 35, 90, 200, 350] },
   { id: 2, name: 'ŞANS KARTU', subtitle: 'Kuzen Sürprizi', type: 'special', price: 0, rent: 0 },
@@ -81,8 +92,6 @@ export const MONOPOLY_PROPERTIES: MonopolyProperty[] = [
   { id: 7, name: 'KADER ÇARKI', subtitle: 'Rastgele Ödül', type: 'special', price: 0, rent: 0 },
   { id: 8, name: 'Roma', subtitle: 'İtalya', type: 'world', price: 160, rent: 25, colorGroup: '#3b82f6', flag: '🇮🇹', housePrice: 75, houseRent: [25, 60, 140, 300, 500] },
   { id: 9, name: 'Boğaz Köprüsü', subtitle: 'İstanbul', type: 'turkey', price: 180, rent: 28, colorGroup: '#ec4899', flag: '🇹🇷', housePrice: 100, houseRent: [28, 70, 160, 340, 550] },
-
-  // Left Row (10 - 19)
   { id: 10, name: 'HAPİSHANE', subtitle: 'Ziyaretçi', type: 'special', price: 0, rent: 0 },
   { id: 11, name: 'Berlin', subtitle: 'Almanya', type: 'world', price: 200, rent: 30, colorGroup: '#10b981', flag: '🇩🇪', housePrice: 100, houseRent: [30, 80, 180, 380, 600] },
   { id: 12, name: 'TOGG Elektrik', subtitle: 'Enerji Santrali', type: 'utility', price: 150, rent: 20 },
@@ -93,8 +102,6 @@ export const MONOPOLY_PROPERTIES: MonopolyProperty[] = [
   { id: 17, name: 'ŞANS KARTU', subtitle: 'Kuzen Sürprizi', type: 'special', price: 0, rent: 0 },
   { id: 18, name: 'Londra', subtitle: 'İngiltere', type: 'world', price: 280, rent: 45, colorGroup: '#f59e0b', flag: '🇬🇧', housePrice: 140, houseRent: [45, 120, 260, 540, 800] },
   { id: 19, name: 'Pamukkale', subtitle: 'Denizli', type: 'turkey', price: 300, rent: 50, colorGroup: '#f59e0b', flag: '🇹🇷', housePrice: 150, houseRent: [50, 130, 280, 580, 850] },
-
-  // Top Row (20 - 29)
   { id: 20, name: 'ÜCRETSİZ OTOPARK', subtitle: 'Dinlenme Alanı', type: 'special', price: 0, rent: 0 },
   { id: 21, name: 'Sidney', subtitle: 'Avustralya', type: 'world', price: 320, rent: 55, colorGroup: '#8b5cf6', flag: '🇦🇺', housePrice: 160, houseRent: [55, 140, 300, 620, 900] },
   { id: 22, name: 'KADER ÇARKI', subtitle: 'Rastgele Ödül', type: 'special', price: 0, rent: 0 },
@@ -105,8 +112,6 @@ export const MONOPOLY_PROPERTIES: MonopolyProperty[] = [
   { id: 27, name: 'Ayasofya', subtitle: 'İstanbul', type: 'turkey', price: 420, rent: 75, colorGroup: '#ec4899', flag: '🇹🇷', housePrice: 210, houseRent: [75, 190, 420, 850, 1200] },
   { id: 28, name: 'LÜKS VERGİSİ', subtitle: '-150₺ Öde', type: 'special', price: 0, rent: 0 },
   { id: 29, name: 'New York', subtitle: 'ABD', type: 'world', price: 450, rent: 80, colorGroup: '#ef4444', flag: '🇺🇸', housePrice: 225, houseRent: [80, 200, 450, 900, 1300] },
-
-  // Right Row (30 - 31)
   { id: 30, name: 'KODESE GİT', subtitle: 'Hapishaneye!', type: 'special', price: 0, rent: 0 },
   { id: 31, name: 'Dubai', subtitle: 'BAE (Elmas Kule)', type: 'world', price: 500, rent: 100, colorGroup: '#ef4444', flag: '🇦🇪', housePrice: 250, houseRent: [100, 250, 500, 1000, 1500] }
 ];
