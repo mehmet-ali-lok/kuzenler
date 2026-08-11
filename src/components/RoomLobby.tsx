@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Player, KuzenProfile } from '@/types';
-import { Users, Bot, Play, Sparkles, Copy, Check, LogOut } from 'lucide-react';
+import { Users, Bot, Play, Sparkles, Copy, Check, LogOut, CheckCircle2, Circle } from 'lucide-react';
 import { soundFx } from '@/lib/audio';
 
 interface RoomLobbyProps {
@@ -14,6 +14,7 @@ interface RoomLobbyProps {
   roomId: string;
   profiles?: Record<'duru' | 'omer' | 'cinar', KuzenProfile>;
   onJoinRoom: (name: string, avatar: string, customRoomId?: string) => void;
+  onToggleReady: () => void;
   onAddBot: () => void;
   onRemovePlayer: (id: string) => void;
   onStartGame: () => void;
@@ -42,6 +43,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   roomId,
   profiles,
   onJoinRoom,
+  onToggleReady,
   onAddBot,
   onRemovePlayer,
   onStartGame,
@@ -54,7 +56,8 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   const [inputRoomId, setInputRoomId] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const isInRoom = players.some((p) => p.id === myPlayerId);
+  const myPlayer = players.find((p) => p.id === myPlayerId);
+  const isInRoom = !!myPlayer;
 
   const avatarOptions = profiles
     ? [
@@ -65,11 +68,18 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
       ]
     : DEFAULT_AVATARS;
 
+  // Ready count check
+  const realPlayers = players.filter((p) => !p.isBot);
+  const readyCount = realPlayers.filter((p) => p.ready).length;
+  const isEveryoneReady = realPlayers.length >= 1 && realPlayers.every((p) => p.ready);
+
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
     if (playerName.trim()) {
       soundFx.playClick();
-      onJoinRoom(playerName.trim(), selectedAvatar, inputRoomId.trim().toUpperCase() || undefined);
+      // Format to 4-digit code e.g. "1234"
+      const formattedCode = inputRoomId.replace(/\D/g, '').slice(0, 4) || '1234';
+      onJoinRoom(playerName.trim(), selectedAvatar, formattedCode);
     }
   };
 
@@ -88,7 +98,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
         <div className="text-center space-y-3">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-bold uppercase tracking-wider">
             <span>{gameIcon}</span>
-            <span>{gameTitle} - Çok Oyunculu Odalar</span>
+            <span>{gameTitle} - Çok Oyunculu Oda</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
             {gameTitle} Lobisi
@@ -128,13 +138,16 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Oda Kodu (Opsiyonel - Katılmak İçin)</label>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+                  4 Haneli Oda Kodu (Örn: 1234)
+                </label>
                 <input
                   type="text"
+                  maxLength={4}
                   value={inputRoomId}
-                  onChange={(e) => setInputRoomId(e.target.value.toUpperCase())}
-                  placeholder="Boş bırakırsanız yeni oda kurulur (Örn: KUZEN77)"
-                  className="w-full px-4 py-3 bg-slate-900 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500 uppercase tracking-widest font-mono"
+                  onChange={(e) => setInputRoomId(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="Varsayılan: 1234"
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-base focus:outline-none focus:border-purple-500 tracking-widest font-mono text-center font-bold"
                 />
               </div>
             </div>
@@ -143,21 +156,22 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               type="submit"
               className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-500 text-white font-extrabold text-base shadow-lg shadow-purple-500/25 hover:scale-[1.02] active:scale-95 transition"
             >
-              {inputRoomId.trim() ? 'Odaya Katıl 🚀' : 'Yeni Oda Kur 🎲'}
+              {inputRoomId.trim() ? `${inputRoomId} Odasına Katıl 🚀` : '1234 Odasını Kur/Katıl 🎲'}
             </button>
           </form>
         ) : (
-          /* Active Room Player List & Controls */
+          /* Active Room Player List & Ready Controls */
           <div className="space-y-6">
             
+            {/* Room Code Share Banner */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950 border border-slate-800">
               <div className="flex items-center gap-3">
-                <span className="p-2 rounded-xl bg-purple-500/20 text-purple-400 font-mono font-extrabold text-lg">
+                <span className="p-2.5 rounded-xl bg-purple-500/20 text-purple-400 font-mono font-black text-xl tracking-widest">
                   #{roomId}
                 </span>
                 <div>
-                  <h4 className="text-sm font-bold text-white">Oda Kodu</h4>
-                  <p className="text-xs text-slate-400">Arkadaşlarınızın bu koda katılması için paylaşın!</p>
+                  <h4 className="text-sm font-bold text-white">4 Haneli Oda Kodu</h4>
+                  <p className="text-xs text-slate-400">Arkadaşlarınızın bu 4 haneli koda katılması için paylaşın!</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -178,11 +192,13 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               </div>
             </div>
 
+            {/* Joined Players Grid with Live Ready Indicators */}
             <div className="space-y-3">
               <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-300">
                   <Users className="w-4 h-4 text-purple-400" />
                   <span>Katılan Oyuncular ({players.length} / {maxPlayers})</span>
+                  <span className="text-xs text-emerald-400 font-semibold">({readyCount}/{realPlayers.length} Hazır)</span>
                 </div>
                 {players.length < maxPlayers && (
                   <button
@@ -190,7 +206,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-semibold transition border border-cyan-500/30"
                   >
                     <Bot className="w-4 h-4" />
-                    + Bot Ekip Oyuncusu Ekle
+                    + Bot Ekle
                   </button>
                 )}
               </div>
@@ -198,60 +214,92 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 {players.map((p, idx) => {
                   const isMe = p.id === myPlayerId;
+                  const isReady = p.ready || p.isBot;
+
                   return (
                     <div
                       key={p.id}
-                      className={`relative flex items-center gap-3 p-4 rounded-2xl border transition-all ${
+                      className={`relative flex items-center justify-between p-4 rounded-2xl border transition-all ${
                         isMe
-                          ? 'bg-purple-950/40 border-purple-500/60 shadow-lg shadow-purple-950/50'
+                          ? 'bg-purple-950/50 border-purple-500 shadow-lg shadow-purple-950/50'
                           : 'bg-slate-950/60 border-slate-800'
                       }`}
                     >
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-lg shadow-sm"
-                        style={{ backgroundColor: p.color || COLORS[idx % COLORS.length] }}
-                      >
-                        {p.avatar ? p.avatar.slice(0, 2) : p.name.slice(0, 2)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <h4 className="text-sm font-bold text-white truncate">{p.name}</h4>
-                          {isMe && <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300">Sen</span>}
-                          {p.isBot && <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300">BOT</span>}
-                        </div>
-                        <p className="text-[11px] text-slate-400 truncate">{p.avatar}</p>
-                      </div>
-                      {isHost && !isMe && (
-                        <button
-                          onClick={() => onRemovePlayer(p.id)}
-                          className="text-slate-500 hover:text-rose-400 text-xs"
-                          title="Oyuncuyu Çıkar"
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-lg shadow-sm shrink-0"
+                          style={{ backgroundColor: p.color || COLORS[idx % COLORS.length] }}
                         >
-                          ✕
-                        </button>
-                      )}
+                          {p.avatar ? p.avatar.slice(0, 2) : p.name.slice(0, 2)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            <h4 className="text-sm font-bold text-white truncate">{p.name}</h4>
+                            {isMe && <span className="text-[9px] px-1 py-0.2 rounded bg-purple-500/20 text-purple-300">Sen</span>}
+                            {p.isBot && <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300">BOT</span>}
+                          </div>
+                          <p className="text-[11px] text-slate-400 truncate">{p.avatar}</p>
+                        </div>
+                      </div>
+
+                      {/* Ready Badge */}
+                      <div className="shrink-0 flex items-center gap-2">
+                        {isReady ? (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-xl border border-emerald-500/30">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Hazır</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded-xl border border-amber-500/30">
+                            <Circle className="w-3.5 h-3.5 animate-pulse" />
+                            <span>Bekliyor</span>
+                          </div>
+                        )}
+                        {isHost && !isMe && (
+                          <button
+                            onClick={() => onRemovePlayer(p.id)}
+                            className="text-slate-500 hover:text-rose-400 text-xs ml-1"
+                            title="Oyuncuyu Çıkar"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
                     </div>
                   );
                 })}
               </div>
             </div>
 
+            {/* Action Bar with Ready & Start Button */}
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-800">
-              <div className="text-xs text-slate-400 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <span>Oyunu başlatmak için en az 2 oyuncu olmalıdır. (Bot ekleyebilirsiniz)</span>
-              </div>
+              
+              {/* Ready Toggle for Joined Player */}
+              <button
+                onClick={onToggleReady}
+                className={`w-full sm:w-auto px-6 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition ${
+                  myPlayer?.ready
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20'
+                }`}
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{myPlayer?.ready ? '✓ Hazırım! (Tıkla ve Bekle)' : '👉 Hazırım Butonuna Bas!'}</span>
+              </button>
+
+              {/* Start Game Button */}
               <button
                 onClick={onStartGame}
-                disabled={players.length < 2}
+                disabled={players.length < 2 || !isEveryoneReady}
                 className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-extrabold text-base flex items-center justify-center gap-3 transition shadow-xl ${
-                  players.length >= 2
-                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-emerald-500/25 hover:scale-105 active:scale-95 cursor-pointer'
+                  players.length >= 2 && isEveryoneReady
+                    ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-500 text-white shadow-purple-500/25 hover:scale-105 active:scale-95 cursor-pointer'
                     : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                 }`}
               >
                 <Play className="w-5 h-5 fill-current" />
-                Oyunu Başlat 🎲
+                Oyunu Başlat ({readyCount}/{realPlayers.length} Oyuncu Hazır) 🎲
               </button>
             </div>
 

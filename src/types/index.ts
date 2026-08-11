@@ -12,7 +12,7 @@ export interface KuzenProfile {
   name: string;
   title: string;
   age: number;
-  avatar: string; // Base64 or Image URL
+  avatar: string;
   themeColor: string;
   bgGradient: string;
   bio: string;
@@ -24,7 +24,7 @@ export interface KuzenProfile {
 
 export interface SharedPhoto {
   id: string;
-  url: string; // Base64 or Image URL
+  url: string;
   title: string;
   uploadedBy: string;
   date: string;
@@ -43,6 +43,7 @@ export interface Player {
   isBankrupt?: boolean;
   cards?: UnoCard[];
   penaltiesCount?: number;
+  ready?: boolean; // Ready status for game start
 }
 
 export type PropertyType = 'turkey' | 'world' | 'station' | 'utility' | 'special';
@@ -65,7 +66,7 @@ export interface MonopolyProperty {
 }
 
 export interface MonopolyGameState {
-  roomId: string;
+  roomId: string; // 4-digit numeric room code e.g. "1234"
   players: Player[];
   properties: MonopolyProperty[];
   currentPlayerIndex: number;
@@ -75,6 +76,7 @@ export interface MonopolyGameState {
   log: string[];
   winnerId?: string;
   freeParkingPool: number;
+  notification?: string | null; // Toast/banner when a player leaves and bot takes over
 }
 
 export type UnoColor = 'red' | 'blue' | 'green' | 'yellow' | 'wild';
@@ -97,7 +99,7 @@ export interface UnoCard {
 }
 
 export interface UnoGameState {
-  roomId: string;
+  roomId: string; // 4-digit numeric room code e.g. "1234"
   players: Player[];
   drawDeck: UnoCard[];
   discardPile: UnoCard[];
@@ -110,4 +112,5 @@ export interface UnoGameState {
   log: string[];
   winnerId?: string;
   unoDeclared: Record<string, boolean>;
+  notification?: string | null; // Toast/banner when a player leaves and bot takes over
 }

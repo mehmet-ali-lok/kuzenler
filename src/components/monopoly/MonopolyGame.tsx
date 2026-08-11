@@ -10,7 +10,7 @@ import { PropertyCardModal } from './PropertyCardModal';
 import { RoomBroadcaster } from '@/lib/multiplayer';
 import { soundFx } from '@/lib/audio';
 import confetti from 'canvas-confetti';
-import { Trophy, History, Wallet, UserCheck, Bot as BotIcon, ArrowRight } from 'lucide-react';
+import { Trophy, History, Wallet, UserCheck, Bot as BotIcon, ArrowRight, AlertTriangle, Flame } from 'lucide-react';
 
 const CHANCE_CARDS = [
   { text: 'Duru sana doğum günü hediyesi gönderdi! +100 ₺ Al', money: 100 },
@@ -26,12 +26,12 @@ interface MonopolyGameProps {
 
 export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
   const [myPlayerId] = useState<string>(() => `player_${Math.random().toString(36).substr(2, 9)}`);
-  const [roomId, setRoomId] = useState<string>('KUZEN77');
+  const [roomId, setRoomId] = useState<string>('1234');
   const [selectedProperty, setSelectedProperty] = useState<MonopolyProperty | null>(null);
   const [isRolling, setIsRolling] = useState(false);
 
   const [gameState, setGameState] = useState<MonopolyGameState>({
-    roomId: 'KUZEN77',
+    roomId: '1234',
     players: [],
     properties: MONOPOLY_PROPERTIES,
     currentPlayerIndex: 0,
@@ -40,6 +40,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     gameStatus: 'lobby',
     log: ['Monopoly canlı odasına hoş geldiniz!'],
     freeParkingPool: 0,
+    notification: null,
   });
 
   const broadcasterRef = useRef<RoomBroadcaster | null>(null);
@@ -62,7 +63,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
   };
 
   const handleJoinRoom = async (name: string, avatar: string, customRoomId?: string) => {
-    const activeRoom = (customRoomId || roomId).toUpperCase();
+    const activeRoom = (customRoomId || roomId).replace(/\D/g, '').slice(0, 4) || '1234';
     if (customRoomId && customRoomId !== roomId) {
       setRoomId(activeRoom);
     }
@@ -97,6 +98,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
       position: 0,
       inJail: false,
       isBankrupt: false,
+      ready: true,
     };
 
     const updatedPlayers = [...existingPlayers.filter((p) => p.id !== myPlayerId), newPlayer];
@@ -111,6 +113,13 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     };
 
     updateState(nextState);
+  };
+
+  const handleToggleReady = () => {
+    const updatedPlayers = gameState.players.map((p) =>
+      p.id === myPlayerId ? { ...p, ready: !p.ready } : p
+    );
+    updateState({ ...gameState, players: updatedPlayers });
   };
 
   const handleAddBot = () => {
@@ -129,6 +138,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
       position: 0,
       inJail: false,
       isBankrupt: false,
+      ready: true,
     };
 
     updateState({
@@ -156,11 +166,8 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
   };
 
   const handleLeaveRoom = () => {
-    updateState({
-      ...gameState,
-      players: gameState.players.filter((p) => p.id !== myPlayerId),
-      gameStatus: 'lobby',
-    });
+    broadcasterRef.current?.leaveRoom(myPlayerId);
+    setGameState((prev) => ({ ...prev, gameStatus: 'lobby' }));
   };
 
   const handleRollDice = () => {
@@ -291,6 +298,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
         roomId={roomId}
         profiles={profiles}
         onJoinRoom={handleJoinRoom}
+        onToggleReady={handleToggleReady}
         onAddBot={handleAddBot}
         onRemovePlayer={handleRemovePlayer}
         onStartGame={handleStartGame}
@@ -308,6 +316,14 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     <div className="min-h-[calc(100vh-5rem)] py-6 px-3 sm:px-6 bg-gradient-to-b from-slate-950 via-purple-950/30 to-slate-950">
       <div className="max-w-7xl mx-auto space-y-6">
         
+        {/* Disconnection/Bot replacement notification */}
+        {gameState.notification && (
+          <div className="p-4 rounded-2xl bg-amber-950/80 border border-amber-500/50 text-amber-200 font-extrabold text-sm sm:text-base text-center shadow-lg animate-pulse flex items-center justify-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <span>{gameState.notification}</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-900/80 border border-slate-800 p-4 rounded-3xl backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div
@@ -378,6 +394,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }} />
                       <span>{p.name}</span>
+                      {p.isBot && <span className="text-[9px] px-1 bg-cyan-500/20 text-cyan-300 rounded">BOT</span>}
                     </div>
                     <div className="font-mono font-extrabold text-emerald-400">
                       {p.money} ₺

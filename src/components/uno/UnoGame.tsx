@@ -48,10 +48,10 @@ interface UnoGameProps {
 
 export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
   const [myPlayerId] = useState<string>(() => `player_${Math.random().toString(36).substr(2, 9)}`);
-  const [roomId, setRoomId] = useState<string>('UNO-KUZEN');
+  const [roomId, setRoomId] = useState<string>('1234');
 
   const [gameState, setGameState] = useState<UnoGameState>({
-    roomId: 'UNO-KUZEN',
+    roomId: '1234',
     players: [],
     drawDeck: [],
     discardPile: [],
@@ -62,6 +62,7 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
     gameStatus: 'lobby',
     log: ['Bol Cezalı UNO canlı odasına hoş geldiniz!'],
     unoDeclared: {},
+    notification: null,
   });
 
   const broadcasterRef = useRef<RoomBroadcaster | null>(null);
@@ -84,7 +85,7 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
   };
 
   const handleJoinRoom = async (name: string, avatar: string, customRoomId?: string) => {
-    const activeRoom = (customRoomId || roomId).toUpperCase();
+    const activeRoom = (customRoomId || roomId).replace(/\D/g, '').slice(0, 4) || '1234';
     if (customRoomId && customRoomId !== roomId) {
       setRoomId(activeRoom);
     }
@@ -114,6 +115,7 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
       avatar,
       color: playerColors[existingPlayers.length % playerColors.length],
       cards: [],
+      ready: true,
     };
 
     const updatedPlayers = [...existingPlayers.filter((p) => p.id !== myPlayerId), newPlayer];
@@ -125,6 +127,13 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
       gameStatus: currentStatus,
       log: currentLogs,
     });
+  };
+
+  const handleToggleReady = () => {
+    const updatedPlayers = gameState.players.map((p) =>
+      p.id === myPlayerId ? { ...p, ready: !p.ready } : p
+    );
+    updateState({ ...gameState, players: updatedPlayers });
   };
 
   const handleAddBot = () => {
@@ -140,6 +149,7 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
       color: playerColors[gameState.players.length % playerColors.length],
       isBot: true,
       cards: [],
+      ready: true,
     };
 
     updateState({
@@ -298,6 +308,11 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
     });
   };
 
+  const handleLeaveRoom = () => {
+    broadcasterRef.current?.leaveRoom(myPlayerId);
+    setGameState((prev) => ({ ...prev, gameStatus: 'lobby' }));
+  };
+
   useEffect(() => {
     if (gameState.gameStatus === 'playing') {
       const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -326,10 +341,11 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
         roomId={roomId}
         profiles={profiles}
         onJoinRoom={handleJoinRoom}
+        onToggleReady={handleToggleReady}
         onAddBot={handleAddBot}
         onRemovePlayer={(id) => updateState({ ...gameState, players: gameState.players.filter((p) => p.id !== id) })}
         onStartGame={handleStartGame}
-        onLeaveRoom={() => updateState({ ...gameState, players: gameState.players.filter((p) => p.id !== myPlayerId) })}
+        onLeaveRoom={handleLeaveRoom}
         isHost={gameState.players[0]?.id === myPlayerId}
         maxPlayers={8}
       />
@@ -345,6 +361,13 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
     <div className="min-h-[calc(100vh-5rem)] py-6 px-3 sm:px-6 bg-gradient-to-b from-slate-950 via-rose-950/20 to-slate-950">
       <div className="max-w-7xl mx-auto space-y-6">
         
+        {gameState.notification && (
+          <div className="p-4 rounded-2xl bg-amber-950/80 border border-amber-500/50 text-amber-200 font-extrabold text-sm sm:text-base text-center shadow-lg animate-pulse flex items-center justify-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <span>{gameState.notification}</span>
+          </div>
+        )}
+
         {gameState.activePenalty && (
           <div className="p-4 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-200 font-extrabold text-sm sm:text-base text-center shadow-lg shadow-rose-950/50 animate-bounce flex items-center justify-center gap-3">
             <Flame className="w-6 h-6 text-rose-400" />
