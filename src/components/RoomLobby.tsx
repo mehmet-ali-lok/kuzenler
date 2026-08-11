@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Player, KuzenProfile } from '@/types';
-import { Users, Bot, Play, Sparkles, Copy, Check, LogOut, CheckCircle2, Circle } from 'lucide-react';
+import { Users, Bot, Play, Sparkles, Copy, Check, LogOut, CheckCircle2, Circle, Clock, UserPlus } from 'lucide-react';
 import { soundFx } from '@/lib/audio';
 
 interface RoomLobbyProps {
@@ -13,15 +13,16 @@ interface RoomLobbyProps {
   myPlayerId: string;
   roomId: string;
   isJoined: boolean;
+  targetPlayerCount?: number;
+  countdown?: number | null;
   profiles?: Record<'duru' | 'omer' | 'cinar', KuzenProfile>;
-  onJoinRoom: (name: string, avatar: string, customRoomId?: string) => void;
+  onJoinRoom: (name: string, avatar: string, customRoomId?: string, targetCount?: number) => void;
   onToggleReady: () => void;
   onAddBot: () => void;
   onRemovePlayer: (id: string) => void;
   onStartGame: () => void;
   onLeaveRoom: () => void;
   isHost: boolean;
-  maxPlayers?: number;
 }
 
 const DEFAULT_AVATARS = [
@@ -43,6 +44,8 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   myPlayerId,
   roomId,
   isJoined,
+  targetPlayerCount = 4,
+  countdown = null,
   profiles,
   onJoinRoom,
   onToggleReady,
@@ -51,11 +54,11 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   onStartGame,
   onLeaveRoom,
   isHost,
-  maxPlayers = 8,
 }) => {
   const [playerName, setPlayerName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(DEFAULT_AVATARS[0]);
   const [inputRoomId, setInputRoomId] = useState('1234');
+  const [selectedTargetCount, setSelectedTargetCount] = useState<number>(4);
   const [copied, setCopied] = useState(false);
 
   const myPlayer = players.find((p) => p.id === myPlayerId);
@@ -71,6 +74,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
 
   const realPlayers = players.filter((p) => !p.isBot);
   const readyCount = realPlayers.filter((p) => p.ready).length;
+  const isTargetCapacityMet = players.length >= targetPlayerCount;
   const isEveryoneReady = realPlayers.length >= 1 && realPlayers.every((p) => p.ready);
 
   const handleJoin = (e: React.FormEvent) => {
@@ -78,7 +82,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
     if (playerName.trim()) {
       soundFx.playClick();
       const formattedCode = inputRoomId.replace(/\D/g, '').slice(0, 4) || '1234';
-      onJoinRoom(playerName.trim(), selectedAvatar, formattedCode);
+      onJoinRoom(playerName.trim(), selectedAvatar, formattedCode, selectedTargetCount);
     }
   };
 
@@ -103,9 +107,20 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
             {gameTitle} Lobisi
           </h2>
           <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto">
-            {gameDescription} (Maksimum {maxPlayers} Oyuncu - Telefon, Tablet ve PC Uyumlu)
+            {gameDescription} (Oda Kapasitesi: {targetPlayerCount} Kişilik)
           </p>
         </div>
+
+        {/* 15-Second Countdown Banner */}
+        {countdown !== null && countdown !== undefined && countdown > 0 && (
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-900 via-pink-900 to-amber-900 border border-purple-500 text-white text-center shadow-2xl space-y-2 animate-pulse">
+            <div className="flex items-center justify-center gap-2 font-black text-lg sm:text-xl">
+              <Clock className="w-6 h-6 text-amber-400 animate-spin" />
+              <span>TÜM OYUNCULAR HAZIR! OYUN {countdown} SANİYE İÇİNDE BAŞLIYOR...</span>
+            </div>
+            <p className="text-xs text-purple-200 font-medium">Hazırlanın! Zarlar ve kartlar dağıtılıyor.</p>
+          </div>
+        )}
 
         {!isJoined ? (
           /* Join / Create Form */
@@ -136,18 +151,35 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
-                  4 Haneli Oda Kodu (Örn: 1234)
-                </label>
-                <input
-                  type="text"
-                  maxLength={4}
-                  value={inputRoomId}
-                  onChange={(e) => setInputRoomId(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="1234"
-                  className="w-full px-4 py-3 bg-slate-900 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-base focus:outline-none focus:border-purple-500 tracking-widest font-mono text-center font-bold"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+                    4 Haneli Oda Kodu
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={4}
+                    value={inputRoomId}
+                    onChange={(e) => setInputRoomId(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    placeholder="1234"
+                    className="w-full px-3 py-3 bg-slate-900 border border-slate-700/80 rounded-2xl text-white placeholder-slate-500 text-base focus:outline-none focus:border-purple-500 tracking-widest font-mono text-center font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+                    Kaç Kişilik Oda?
+                  </label>
+                  <select
+                    value={selectedTargetCount}
+                    onChange={(e) => setSelectedTargetCount(parseInt(e.target.value))}
+                    className="w-full px-3 py-3 bg-slate-900 border border-slate-700/80 rounded-2xl text-white text-sm font-bold focus:outline-none focus:border-purple-500"
+                  >
+                    {[2, 3, 4, 5, 6, 7, 8].map((count) => (
+                      <option key={count} value={count}>{count} Kişilik Oda</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -155,14 +187,14 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               type="submit"
               className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-500 text-white font-extrabold text-base shadow-lg shadow-purple-500/25 hover:scale-[1.02] active:scale-95 transition cursor-pointer"
             >
-              Odaya Katıl 🚀
+              Odaya Katıl / Kur ({selectedTargetCount} Kişilik) 🚀
             </button>
           </form>
         ) : (
           /* Active Room Player List & Ready Controls */
           <div className="space-y-6">
             
-            {/* Room Code Share Banner */}
+            {/* Room Code & Target Capacity Banner */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950 border border-slate-800">
               <div className="flex items-center gap-3">
                 <span className="p-2.5 rounded-xl bg-purple-500/20 text-purple-400 font-mono font-black text-xl tracking-widest">
@@ -170,7 +202,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                 </span>
                 <div>
                   <h4 className="text-sm font-bold text-white">4 Haneli Oda Kodu</h4>
-                  <p className="text-xs text-slate-400">Arkadaşlarınızın bu 4 haneli koda katılması için paylaşın!</p>
+                  <p className="text-xs text-slate-400">Hedef: {targetPlayerCount} Kişilik Oda ({players.length}/{targetPlayerCount} Katıldı)</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -196,16 +228,16 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-300">
                   <Users className="w-4 h-4 text-purple-400" />
-                  <span>Katılan Oyuncular ({players.length} / {maxPlayers})</span>
+                  <span>Katılan Oyuncular ({players.length} / {targetPlayerCount})</span>
                   <span className="text-xs text-emerald-400 font-semibold">({readyCount}/{realPlayers.length} Hazır)</span>
                 </div>
-                {players.length < maxPlayers && (
+                {players.length < targetPlayerCount && (
                   <button
                     onClick={onAddBot}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-semibold transition border border-cyan-500/30"
                   >
                     <Bot className="w-4 h-4" />
-                    + Bot Ekle
+                    + Eksik Yere Bot Ekle
                   </button>
                 )}
               </div>
@@ -282,7 +314,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                 }`}
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>{myPlayer?.ready ? '✓ Hazırım! (Diğerleri bekleniyor)' : '👉 Hazırım Butonuna Bas!'}</span>
+                <span>{myPlayer?.ready ? '✓ Hazırım! (Geri Sayım Bekleniyor)' : '👉 Hazırım Butonuna Bas!'}</span>
               </button>
 
               <button
@@ -295,7 +327,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                 }`}
               >
                 <Play className="w-5 h-5 fill-current" />
-                Oyunu Başlat ({readyCount}/{realPlayers.length} Oyuncu Hazır) 🎲
+                {countdown ? `Geri Sayım Devam Ediyor (${countdown}s)` : `Hemen Başlat (${readyCount}/${realPlayers.length} Hazır)`}
               </button>
             </div>
 

@@ -53,6 +53,8 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
 
   const [gameState, setGameState] = useState<UnoGameState>({
     roomId: '1234',
+    targetPlayerCount: 4,
+    countdown: null,
     players: [],
     drawDeck: [],
     discardPile: [],
@@ -85,7 +87,48 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
     broadcasterRef.current?.broadcast(newState);
   };
 
-  const handleJoinRoom = async (name: string, avatar: string, customRoomId?: string) => {
+  // 15-Second Countdown Timer Trigger
+  useEffect(() => {
+    if (gameState.gameStatus === 'lobby') {
+      const realPlayers = gameState.players.filter((p) => !p.isBot);
+      const isTargetMet = gameState.players.length >= (gameState.targetPlayerCount || 4);
+      const isEveryoneReady = realPlayers.length >= 1 && realPlayers.every((p) => p.ready);
+
+      if (isTargetMet && isEveryoneReady) {
+        if (gameState.countdown === null || gameState.countdown === undefined) {
+          updateState({ ...gameState, countdown: 15 });
+        } else if (gameState.countdown > 0) {
+          const t = setTimeout(() => {
+            updateState({ ...gameState, countdown: (gameState.countdown || 15) - 1 });
+          }, 1000);
+          return () => clearTimeout(t);
+        } else if (gameState.countdown === 0) {
+          soundFx.playWinFanfare();
+          const fullDeck = GENERATE_DECK();
+          const updatedPlayers = gameState.players.map((p) => ({
+            ...p,
+            cards: fullDeck.splice(0, 7),
+          }));
+          const topCard = fullDeck.pop() || { id: 'top_1', color: 'red', value: '5' };
+
+          updateState({
+            ...gameState,
+            countdown: null,
+            players: updatedPlayers,
+            drawDeck: fullDeck,
+            discardPile: [topCard],
+            gameStatus: 'playing',
+            currentPlayerIndex: 0,
+            log: ['🚀 15 saniye geri sayım tamamlandı! UNO başladı!', ...gameState.log],
+          });
+        }
+      } else if (gameState.countdown !== null) {
+        updateState({ ...gameState, countdown: null });
+      }
+    }
+  }, [gameState.players, gameState.gameStatus, gameState.countdown, gameState.targetPlayerCount]);
+
+  const handleJoinRoom = async (name: string, avatar: string, customRoomId?: string, targetCount?: number) => {
     const activeRoom = (customRoomId || roomId).replace(/\D/g, '').slice(0, 4) || '1234';
     if (customRoomId && customRoomId !== roomId) {
       setRoomId(activeRoom);
@@ -93,6 +136,7 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
 
     let existingPlayers: Player[] = [];
     let currentStatus: 'lobby' | 'playing' | 'ended' = 'lobby';
+    let currentTarget = targetCount || 4;
     let currentLogs = [`${name} UNO odasına katıldı!`];
 
     try {
@@ -102,6 +146,7 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
         if (data.found && data.gameState) {
           existingPlayers = data.gameState.players || [];
           currentStatus = data.gameState.gameStatus || 'lobby';
+          currentTarget = data.gameState.targetPlayerCount || currentTarget;
           currentLogs = [`${name} UNO odasına katıldı!`, ...(data.gameState.log || [])];
         }
       }
@@ -120,30 +165,15 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
     };
 
     const updatedPlayers = [...existingPlayers.filter((p) => p.id !== myPlayerId), newPlayer];
-    const realPlayers = updatedPlayers.filter((p) => !p.isBot);
-    const autoStart = realPlayers.length >= 2 && realPlayers.every((p) => p.ready);
-
-    let deck = gameState.drawDeck;
-    let discard = gameState.discardPile;
-    if (autoStart && deck.length === 0) {
-      const fullDeck = GENERATE_DECK();
-      updatedPlayers.forEach((p) => {
-        p.cards = fullDeck.splice(0, 7);
-      });
-      const topCard = fullDeck.pop() || { id: 'top_1', color: 'red', value: '5' };
-      deck = fullDeck;
-      discard = [topCard];
-    }
 
     setIsJoined(true);
     updateState({
       ...gameState,
       roomId: activeRoom,
+      targetPlayerCount: currentTarget,
       players: updatedPlayers,
-      drawDeck: deck,
-      discardPile: discard,
-      gameStatus: autoStart ? 'playing' : currentStatus,
-      log: autoStart ? ['🔥 Tüm oyuncular hazır! Bol Cezalı UNO otomatik başladı.', ...currentLogs] : currentLogs,
+      gameStatus: currentStatus,
+      log: currentLogs,
     });
   };
 
@@ -152,29 +182,9 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
       p.id === myPlayerId ? { ...p, ready: !p.ready } : p
     );
 
-    const realPlayers = updatedPlayers.filter((p) => !p.isBot);
-    const autoStart = realPlayers.length >= 2 && realPlayers.every((p) => p.ready);
-
-    let deck = gameState.drawDeck;
-    let discard = gameState.discardPile;
-    if (autoStart && deck.length === 0) {
-      soundFx.playWinFanfare();
-      const fullDeck = GENERATE_DECK();
-      updatedPlayers.forEach((p) => {
-        p.cards = fullDeck.splice(0, 7);
-      });
-      const topCard = fullDeck.pop() || { id: 'top_1', color: 'red', value: '5' };
-      deck = fullDeck;
-      discard = [topCard];
-    }
-
     updateState({
       ...gameState,
       players: updatedPlayers,
-      drawDeck: deck,
-      discardPile: discard,
-      gameStatus: autoStart ? 'playing' : gameState.gameStatus,
-      log: autoStart ? ['🔥 Tüm oyuncular hazırım butonuna bastı! Oyun başladı!', ...gameState.log] : gameState.log,
     });
   };
 
@@ -221,6 +231,7 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
       currentValue: topCard.value,
       currentPlayerIndex: 0,
       gameStatus: 'playing',
+      countdown: null,
       log: ['🔥 Bol Cezalı UNO başladı! Herkese 7 kart dağıtıldı.', ...gameState.log],
     });
   };
@@ -382,6 +393,8 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
         myPlayerId={myPlayerId}
         roomId={roomId}
         isJoined={isJoined}
+        targetPlayerCount={gameState.targetPlayerCount}
+        countdown={gameState.countdown}
         profiles={profiles}
         onJoinRoom={handleJoinRoom}
         onToggleReady={handleToggleReady}
@@ -390,7 +403,6 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
         onStartGame={handleStartGame}
         onLeaveRoom={handleLeaveRoom}
         isHost={gameState.players[0]?.id === myPlayerId}
-        maxPlayers={8}
       />
     );
   }

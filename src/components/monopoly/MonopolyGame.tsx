@@ -34,6 +34,8 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
 
   const [gameState, setGameState] = useState<MonopolyGameState>({
     roomId: '1234',
+    targetPlayerCount: 4,
+    countdown: null,
     players: [],
     properties: MONOPOLY_PROPERTIES,
     currentPlayerIndex: 0,
@@ -46,6 +48,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
   });
 
   const broadcasterRef = useRef<RoomBroadcaster | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     broadcasterRef.current = new RoomBroadcaster('monopoly', roomId, (newState) => {
@@ -64,7 +67,40 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     broadcasterRef.current?.broadcast(newState);
   };
 
-  const handleJoinRoom = async (name: string, avatar: string, customRoomId?: string) => {
+  // 15-Second Countdown Timer Trigger
+  useEffect(() => {
+    if (gameState.gameStatus === 'lobby') {
+      const realPlayers = gameState.players.filter((p) => !p.isBot);
+      const isTargetMet = gameState.players.length >= (gameState.targetPlayerCount || 4);
+      const isEveryoneReady = realPlayers.length >= 1 && realPlayers.every((p) => p.ready);
+
+      if (isTargetMet && isEveryoneReady) {
+        if (gameState.countdown === null || gameState.countdown === undefined) {
+          // Initiate 15 second countdown
+          updateState({ ...gameState, countdown: 15 });
+        } else if (gameState.countdown > 0) {
+          const t = setTimeout(() => {
+            updateState({ ...gameState, countdown: (gameState.countdown || 15) - 1 });
+          }, 1000);
+          return () => clearTimeout(t);
+        } else if (gameState.countdown === 0) {
+          soundFx.playWinFanfare();
+          updateState({
+            ...gameState,
+            countdown: null,
+            gameStatus: 'playing',
+            currentPlayerIndex: 0,
+            log: ['🚀 15 saniye geri sayım tamamlandı! Oyun başladı!', ...gameState.log],
+          });
+        }
+      } else if (gameState.countdown !== null) {
+        // Reset countdown if someone unreadies or leaves
+        updateState({ ...gameState, countdown: null });
+      }
+    }
+  }, [gameState.players, gameState.gameStatus, gameState.countdown, gameState.targetPlayerCount]);
+
+  const handleJoinRoom = async (name: string, avatar: string, customRoomId?: string, targetCount?: number) => {
     const activeRoom = (customRoomId || roomId).replace(/\D/g, '').slice(0, 4) || '1234';
     if (customRoomId && customRoomId !== roomId) {
       setRoomId(activeRoom);
@@ -73,6 +109,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     let existingPlayers: Player[] = [];
     let currentProperties = MONOPOLY_PROPERTIES;
     let currentStatus: 'lobby' | 'playing' | 'ended' = 'lobby';
+    let currentTarget = targetCount || 4;
     let currentLogs = [`${name} odaya katıldı!`];
 
     try {
@@ -83,6 +120,7 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
           existingPlayers = data.gameState.players || [];
           currentProperties = data.gameState.properties || MONOPOLY_PROPERTIES;
           currentStatus = data.gameState.gameStatus || 'lobby';
+          currentTarget = data.gameState.targetPlayerCount || currentTarget;
           currentLogs = [`${name} odaya katıldı!`, ...(data.gameState.log || [])];
         }
       }
@@ -104,16 +142,15 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     };
 
     const updatedPlayers = [...existingPlayers.filter((p) => p.id !== myPlayerId), newPlayer];
-    const realPlayers = updatedPlayers.filter((p) => !p.isBot);
-    const autoStart = realPlayers.length >= 2 && realPlayers.every((p) => p.ready);
 
     const nextState: MonopolyGameState = {
       ...gameState,
       roomId: activeRoom,
+      targetPlayerCount: currentTarget,
       players: updatedPlayers,
       properties: currentProperties,
-      gameStatus: autoStart ? 'playing' : currentStatus,
-      log: autoStart ? ['🎮 Tüm oyuncular hazır! Oyun otomatik başladı! 🎲', ...currentLogs] : currentLogs,
+      gameStatus: currentStatus,
+      log: currentLogs,
     };
 
     setIsJoined(true);
@@ -125,18 +162,9 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
       p.id === myPlayerId ? { ...p, ready: !p.ready } : p
     );
 
-    const realPlayers = updatedPlayers.filter((p) => !p.isBot);
-    const autoStart = realPlayers.length >= 2 && realPlayers.every((p) => p.ready);
-
-    if (autoStart) {
-      soundFx.playWinFanfare();
-    }
-
     updateState({
       ...gameState,
       players: updatedPlayers,
-      gameStatus: autoStart ? 'playing' : gameState.gameStatus,
-      log: autoStart ? ['🎮 Tüm oyuncular hazırım butonuna bastı! Oyun otomatik başladı! 🎲', ...gameState.log] : gameState.log,
     });
   };
 
@@ -160,13 +188,10 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     };
 
     const updatedPlayers = [...gameState.players, botPlayer];
-    const realPlayers = updatedPlayers.filter((p) => !p.isBot);
-    const autoStart = realPlayers.length >= 1 && realPlayers.every((p) => p.ready);
 
     updateState({
       ...gameState,
       players: updatedPlayers,
-      gameStatus: autoStart && updatedPlayers.length >= 2 ? 'playing' : gameState.gameStatus,
       log: [`${botName} oyuna bot olarak eklendi!`, ...gameState.log],
     });
   };
@@ -183,8 +208,9 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
     updateState({
       ...gameState,
       gameStatus: 'playing',
+      countdown: null,
       currentPlayerIndex: 0,
-      log: ['🎮 Monopoly oyunu başladı! İlk oyuncu zarlarını atıyor...', ...gameState.log],
+      log: ['🎮 Monopoly oyunu hemen başlatıldı! İlk oyuncu zarlarını atıyor...', ...gameState.log],
     });
   };
 
@@ -336,11 +362,13 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
       <RoomLobby
         gameTitle="Monopoly"
         gameIcon="🎲"
-        gameDescription="Türkiye'nin en güzel turizm cennetleri ve dünya metropolleriyle donatılmış 8 kişilik Resmi Monopoly macerası!"
+        gameDescription="Türkiye'nin en güzel turizm cennetleri ve dünya metropolleriyle donatılmış Resmi Monopoly macerası!"
         players={gameState.players}
         myPlayerId={myPlayerId}
         roomId={roomId}
         isJoined={isJoined}
+        targetPlayerCount={gameState.targetPlayerCount}
+        countdown={gameState.countdown}
         profiles={profiles}
         onJoinRoom={handleJoinRoom}
         onToggleReady={handleToggleReady}
@@ -349,7 +377,6 @@ export const MonopolyGame: React.FC<MonopolyGameProps> = ({ profiles }) => {
         onStartGame={handleStartGame}
         onLeaveRoom={handleLeaveRoom}
         isHost={gameState.players[0]?.id === myPlayerId}
-        maxPlayers={8}
       />
     );
   }

@@ -43,7 +43,7 @@ export interface Player {
   isBankrupt?: boolean;
   cards?: UnoCard[];
   penaltiesCount?: number;
-  ready?: boolean; // Ready status for game start
+  ready?: boolean;
 }
 
 export type PropertyType = 'turkey' | 'world' | 'station' | 'utility' | 'special';
@@ -66,7 +66,9 @@ export interface MonopolyProperty {
 }
 
 export interface MonopolyGameState {
-  roomId: string; // 4-digit numeric room code e.g. "1234"
+  roomId: string;
+  targetPlayerCount: number; // Selected target player count (2 to 8)
+  countdown?: number | null; // 15-second countdown timer
   players: Player[];
   properties: MonopolyProperty[];
   currentPlayerIndex: number;
@@ -76,7 +78,7 @@ export interface MonopolyGameState {
   log: string[];
   winnerId?: string;
   freeParkingPool: number;
-  notification?: string | null; // Toast/banner when a player leaves and bot takes over
+  notification?: string | null;
 }
 
 export type UnoColor = 'red' | 'blue' | 'green' | 'yellow' | 'wild';
@@ -99,7 +101,9 @@ export interface UnoCard {
 }
 
 export interface UnoGameState {
-  roomId: string; // 4-digit numeric room code e.g. "1234"
+  roomId: string;
+  targetPlayerCount: number; // Selected target player count (2 to 8)
+  countdown?: number | null; // 15-second countdown timer
   players: Player[];
   drawDeck: UnoCard[];
   discardPile: UnoCard[];
@@ -112,5 +116,5 @@ export interface UnoGameState {
   log: string[];
   winnerId?: string;
   unoDeclared: Record<string, boolean>;
-  notification?: string | null; // Toast/banner when a player leaves and bot takes over
+  notification?: string | null;
 }
