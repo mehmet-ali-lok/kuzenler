@@ -120,12 +120,29 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
 
     const updatedPlayers = [...existingPlayers.filter((p) => p.id !== myPlayerId), newPlayer];
     
+    const realPlayers = updatedPlayers.filter((p) => !p.isBot);
+    const autoStart = realPlayers.length >= 2 && realPlayers.every((p) => p.ready);
+
+    let deck = gameState.drawDeck;
+    let discard = gameState.discardPile;
+    if (autoStart && deck.length === 0) {
+      const fullDeck = GENERATE_DECK();
+      updatedPlayers.forEach((p) => {
+        p.cards = fullDeck.splice(0, 7);
+      });
+      const topCard = fullDeck.pop() || { id: 'top_1', color: 'red', value: '5' };
+      deck = fullDeck;
+      discard = [topCard];
+    }
+
     updateState({
       ...gameState,
       roomId: activeRoom,
       players: updatedPlayers,
-      gameStatus: currentStatus,
-      log: currentLogs,
+      drawDeck: deck,
+      discardPile: discard,
+      gameStatus: autoStart ? 'playing' : currentStatus,
+      log: autoStart ? ['🔥 Tüm oyuncular hazır! Bol Cezalı UNO otomatik başladı.', ...currentLogs] : currentLogs,
     });
   };
 
@@ -133,7 +150,31 @@ export const UnoGame: React.FC<UnoGameProps> = ({ profiles }) => {
     const updatedPlayers = gameState.players.map((p) =>
       p.id === myPlayerId ? { ...p, ready: !p.ready } : p
     );
-    updateState({ ...gameState, players: updatedPlayers });
+
+    const realPlayers = updatedPlayers.filter((p) => !p.isBot);
+    const autoStart = realPlayers.length >= 2 && realPlayers.every((p) => p.ready);
+
+    let deck = gameState.drawDeck;
+    let discard = gameState.discardPile;
+    if (autoStart && deck.length === 0) {
+      soundFx.playWinFanfare();
+      const fullDeck = GENERATE_DECK();
+      updatedPlayers.forEach((p) => {
+        p.cards = fullDeck.splice(0, 7);
+      });
+      const topCard = fullDeck.pop() || { id: 'top_1', color: 'red', value: '5' };
+      deck = fullDeck;
+      discard = [topCard];
+    }
+
+    updateState({
+      ...gameState,
+      players: updatedPlayers,
+      drawDeck: deck,
+      discardPile: discard,
+      gameStatus: autoStart ? 'playing' : gameState.gameStatus,
+      log: autoStart ? ['🔥 Tüm oyuncular hazırım butonuna bastı! Oyun başladı!', ...gameState.log] : gameState.log,
+    });
   };
 
   const handleAddBot = () => {
